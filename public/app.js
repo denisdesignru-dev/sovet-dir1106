@@ -153,3 +153,100 @@ function switchTab(tab) {
     document.getElementById(`content-${tab}`).classList.remove('hidden');
     document.getElementById(`tab-${tab}`).classList.add('active');
 }
+
+
+// НОВЫЙ КОД
+
+// Хранилище выбранных оценок
+const selectedRatings = {
+    business: null,
+    team: null,
+    health: null,
+    relations: null
+};
+
+// Генерация кнопок 1-10 при загрузке страницы
+document.addEventListener("DOMContentLoaded", () => {
+    const selectors = document.querySelectorAll('.rating-selector');
+    
+    selectors.forEach(selector => {
+        const metricName = selector.getAttribute('data-metric');
+        
+        for (let i = 1; i <= 10; i++) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'rating-btn';
+            btn.textContent = i;
+            
+            btn.addEventListener('click', () => {
+                // Снимаем выделение с других кнопок в этой строке
+                selector.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+                // Выделяем текущую
+                btn.classList.add('selected');
+                // Сохраняем значение
+                selectedRatings[metricName] = i;
+            });
+            
+            selector.appendChild(btn);
+        }
+    });
+});
+
+// Функция отправки метрик на сервер
+async function saveMetrics(event) {
+    event.preventDefault();
+    
+    const token = localStorage.getItem('token'); // Твой JWT токен авторизации
+    const period = document.getElementById('periodSelect').value;
+
+    // Валидация
+    if (!selectedRatings.business || !selectedRatings.team || !selectedRatings.health || !selectedRatings.relations) {
+        alert("Пожалуйста, оцените все 4 аспекта жизни перед сохранением.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/metrics', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                period: period,
+                business: selectedRatings.business,
+                team: selectedRatings.team,
+                health: selectedRatings.health,
+                relations: selectedRatings.relations
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert(data.message);
+        } else {
+            alert("Ошибка сохранения: " + data.error);
+        }
+    } catch (error) {
+        console.error("Ошибка сети:", error);
+        alert("Не удалось связаться с сервером.");
+    }
+}
+
+// Заглушки для интеграции с твоей существующей авторизацией
+function login() {
+    // Твоя логика авторизации, которая меняет состояние на профиль
+    document.getElementById('authBlock').classList.add('hidden');
+    document.getElementById('userProfileHeader').classList.remove('hidden');
+    // Пример заполнения данных Максима
+    document.getElementById('profileName').textContent = "Белянин Максим Николаевич";
+    document.getElementById('profileCompany').textContent = "ООО «АММЕТА ГРУПП»";
+    document.getElementById('profileNiche').textContent = "Станки и Промтехника";
+    document.getElementById('profileTurnover').textContent = "10.9 млн руб.";
+}
+
+function logout() {
+    document.getElementById('authBlock').classList.remove('hidden');
+    document.getElementById('userProfileHeader').classList.add('hidden');
+}

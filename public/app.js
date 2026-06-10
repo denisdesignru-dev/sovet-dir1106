@@ -1,19 +1,16 @@
 let token = localStorage.getItem('token') || '';
-let currentRole = ''; // 'resident' или 'speaker'/'admin'
+let currentRole = ''; 
 let myChart = null;
 let selectedResidentId = null;
 
-// Состояние календаря
-let currentSelectedDateStr = ''; // Формат: "YYYY-MM-DD"
+let currentSelectedDateStr = ''; 
 let cachedEvents = [];
 let cachedRsvps = [];
 
-// Локальное состояние ползунков резидента
 const residentRatings = { business: 5, team: 5, health: 5, relations: 5 };
 
 if (token) showMainSystem();
 
-// Синхронизация ползунков и инпутов резидента
 function syncSlider(metric, val) {
     let checkedVal = parseInt(val);
     if (isNaN(checkedVal) || checkedVal < 1) checkedVal = 1;
@@ -24,7 +21,6 @@ function syncSlider(metric, val) {
     document.getElementById(`num-${metric}`).value = checkedVal;
 }
 
-// --- АВТОРИЗАЦИЯ И СИСТЕМА ---
 async function handleLogin() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
@@ -54,7 +50,6 @@ function showMainSystem() {
     loadDashboardData();
 }
 
-// --- ПАНЕЛЬ УПРАВЛЕНИЯ (ЭКРАН 1) ---
 async function loadDashboardData() {
     const res = await fetch('/api/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
@@ -71,18 +66,16 @@ async function loadDashboardData() {
         document.getElementById('res-niche').innerText = data.profile.niche;
         document.getElementById('res-turnover').innerText = data.profile.turnover;
         
-        // Отрисовка комментариев (директив) от методолога
         const recBlock = document.getElementById('recommendations-block');
         recBlock.innerHTML = data.metrics.map(m => `
-            <div class="rec-item-card">
+            <div style="background:#1a1a1a; padding:15px; border-radius:6px; margin-bottom:10px; border:1px solid #222;">
                 <strong>Период: ${m.date_period}</strong>
-                <p style="margin-top:8px; font-size:0.9rem; color:#e0e0e0;">${m.recommendations || 'Комментарии от методолога к этому месяцу пока отсутствуют.'}</p>
+                <p style="margin-top:8px; font-size:0.9rem; color:#e0e0e0;">${m.recommendations || 'Комментарии от методолога пока отсутствуют.'}</p>
             </div>
         `).join('');
         
         renderChart(data.metrics);
     } else {
-        // Интерфейс Методолога: только реестр участников и блок комментариев
         document.getElementById('speaker-view').classList.remove('hidden');
         document.getElementById('resident-view').classList.add('hidden');
         
@@ -114,7 +107,6 @@ function renderChart(metrics) {
     });
 }
 
-// Резидент отправляет свои оценки
 async function saveResidentSelfMetrics(event) {
     event.preventDefault();
     const period = document.getElementById('periodSelect').value;
@@ -127,7 +119,6 @@ async function saveResidentSelfMetrics(event) {
     if(res.ok) { alert(data.message); loadDashboardData(); } else { alert(data.error); }
 }
 
-// Открытие методологом карточки резидента для добавления комментариев
 async function openSpeakerEditor(residentId, name) {
     selectedResidentId = residentId;
     document.getElementById('editor-block').classList.remove('hidden');
@@ -154,19 +145,20 @@ async function saveSpeakerRecommendations() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
     });
-    if(res.ok) { alert('Комментарии успешно сохранены в ЛК резидента.'); loadDashboardData(); }
+    if(res.ok) { alert('Комментарии успешно сохранены.'); loadDashboardData(); }
 }
 
-
-// --- ПОЛНОЦЕННЫЙ ГУГЛ КАЛЕНДАРЬ (ЭКРАН 2) ---
+// --- ИСПРАВЛЕННАЯ ОТРИСОВКА КАЛЕНДАРЯ ---
 async function renderGoogleCalendar() {
-    const pickerVal = document.getElementById('calendarMonthPicker').value; // "YYYY-MM"
+    const pickerVal = document.getElementById('calendarMonthPicker').value; // Формат "YYYY-MM"
+    if (!pickerVal) return;
+
     const [year, month] = pickerVal.split('-').map(Number);
     
     const res = await fetch(`/api/events/month/${pickerVal}`, { headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
-    cachedEvents = data.events;
-    cachedRsvps = data.rsvps;
+    cachedEvents = data.events || [];
+    cachedRsvps = data.rsvps || [];
 
     const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
     document.getElementById('calendar-month-title').innerText = `${monthNames[month - 1]} ${year}`;
@@ -174,18 +166,22 @@ async function renderGoogleCalendar() {
     const container = document.getElementById('calendar-days-container');
     container.innerHTML = '';
 
-    const firstDayIndex = new Date(year, month - 1, 1).getDay();
-    const shiftedIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Сдвиг под Пн-Вс
+    // Вычисляем день недели для 1-го числа текущего месяца (0 = Вс, 1 = Пн...)
+    let firstDayIndex = new Date(year, month - 1, 1).getDay();
+    // Корректируем под наш формат (Пн = 0, Вс = 6)
+    let shiftedIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1; 
+    
+    // Вычисляем общее количество дней в месяце (например, 30 для июня)
     const totalDaysInMonth = new Date(year, month, 0).getDate();
 
-    // Пустые ячейки начала месяца
+    // 1. Отрисовка пустых ячеек сдвига начала недели
     for (let i = 0; i < shiftedIndex; i++) {
         const blank = document.createElement('div');
         blank.className = 'calendar-day-cell empty-cell';
         container.appendChild(blank);
     }
 
-    // Ровно столько ячеек, сколько дней в этом месяце
+    // 2. Генерация ровно стольких ячеек, сколько дней в месяце (30 ячеек для июня)
     for (let day = 1; day <= totalDaysInMonth; day++) {
         const cell = document.createElement('div');
         cell.className = 'calendar-day-cell';
@@ -193,6 +189,7 @@ async function renderGoogleCalendar() {
         const dayStr = String(day).padStart(2, '0');
         const fullDateStr = `${pickerVal}-${dayStr}`;
         
+        // Клик по ячейке открывает модальное окно дня
         cell.onclick = () => openDayModal(fullDateStr);
 
         const todayStr = new Date().toISOString().split('T')[0];
@@ -200,7 +197,7 @@ async function renderGoogleCalendar() {
 
         cell.innerHTML = `<span class="cell-day-number">${day}</span>`;
 
-        // Базовая информация о мероприятиях в ячейке (название и время)
+        // Фильтруем и выводим мини-плашки встреч внутри ячейки
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
         dayEvents.forEach(e => {
             const badge = document.createElement('div');
@@ -213,13 +210,11 @@ async function renderGoogleCalendar() {
     }
 }
 
-// Открытие дня
 function openDayModal(dateStr) {
     currentSelectedDateStr = dateStr;
     document.getElementById('day-modal').classList.remove('hidden');
     document.getElementById('modal-day-title').innerText = `Расписание на ${dateStr}`;
 
-    // Отображение кнопки "+" в правом нижнем углу только для методолога
     if(currentRole === 'speaker' || currentRole === 'admin') {
         document.getElementById('floating-add-btn').classList.remove('hidden');
     } else {
@@ -230,12 +225,11 @@ function openDayModal(dateStr) {
 }
 
 function closeDayModal(e) {
-    if(!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('close-btn')) {
+    if(!e || e.target.classList.contains('modal-overlay')) {
         document.getElementById('day-modal').classList.add('hidden');
     }
 }
 
-// Генерация расписания дня по часам и карточек встреч
 function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
     listContainer.innerHTML = '';
@@ -243,14 +237,11 @@ function renderDayEventsDetails() {
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
     dayEvents.sort((a,b) => a.event_time.localeCompare(b.event_time));
 
-    // Обновляем визуальный интерактив для левой шкалы времени методолога
     const timeSlots = document.querySelectorAll('.time-slot');
     timeSlots.forEach(slot => {
-        // Убираем старые метки занятости
         slot.classList.remove('has-event');
         const hour = slot.getAttribute('data-hour');
         
-        // Переназначаем клик для методолога
         if (currentRole === 'speaker' || currentRole === 'admin') {
             slot.onclick = () => triggerCreateEvent(hour);
         } else {
@@ -259,12 +250,11 @@ function renderDayEventsDetails() {
     });
 
     if(dayEvents.length === 0) {
-        listContainer.innerHTML = `<p class="event-meta-text" style="padding:20px; text-align:center; color: var(--text-muted);">Встреч на этот день не запланировано.</p>`;
+        listContainer.innerHTML = `<p style="padding:20px; text-align:center; color: var(--text-muted);">Встреч на этот день не запланировано.</p>`;
         return;
     }
 
     dayEvents.forEach(e => {
-        // Подсвечиваем час на левой панели, если там есть событие
         const eventHour = e.event_time.split(':')[0] + ':00';
         const matchingSlot = document.querySelector(`.time-slot[data-hour="${eventHour}"]`);
         if (matchingSlot) matchingSlot.classList.add('has-event');
@@ -276,7 +266,6 @@ function renderDayEventsDetails() {
         let buttonsHtml = '';
 
         if (!rsvp) {
-            // Статус по умолчанию и 2 кнопки управления для резидента
             statusText = 'Подтвердите участие';
             statusClass = 'status-pending';
             buttonsHtml = `
@@ -296,7 +285,6 @@ function renderDayEventsDetails() {
         const card = document.createElement('div');
         card.className = 'detailed-event-card';
         
-        // Контент карточки (Вся информация: Название, Адрес, Время, Статус)
         let cardBody = `
             <div class="event-info-clickable">
                 <h4>${e.title}</h4>
@@ -308,7 +296,6 @@ function renderDayEventsDetails() {
 
         card.innerHTML = cardBody + (currentRole === 'resident' ? buttonsHtml : '');
 
-        // Если зашел методолог — клик по самой карточке открывает окно редактирования/удаления
         if (currentRole === 'speaker' || currentRole === 'admin') {
             card.style.cursor = 'pointer';
             card.querySelector('.event-info-clickable').onclick = () => {
@@ -320,14 +307,12 @@ function renderDayEventsDetails() {
     });
 }
 
-// --- ЛОГИКА ДИАЛОГОВЫХ ОКН ПОДТВЕРЖДЕНИЯ (БЕЗ ОТМЕНЫ ПОСЛЕ "ДА") ---
 function openConfirmDialogue(eventId, decision) {
     const modal = document.getElementById('club-confirm-modal');
     const text = document.getElementById('confirm-modal-text');
     const yesBtn = document.getElementById('confirm-yes-btn');
     const noBtn = document.getElementById('confirm-no-btn');
 
-    // Настройка кастомного текста под выбранную кнопку
     if (decision === 'going') {
         text.innerText = "Подтверждаете участие?";
     } else {
@@ -336,7 +321,6 @@ function openConfirmDialogue(eventId, decision) {
 
     modal.classList.remove('hidden');
 
-    // Кнопка "Да" — фиксирует выбор на сервере, отменить больше нельзя
     yesBtn.onclick = async () => {
         modal.classList.add('hidden');
         const res = await fetch('/api/events/rsvp', {
@@ -346,7 +330,6 @@ function openConfirmDialogue(eventId, decision) {
         });
         
         if (res.ok) {
-            // Перерисовываем сетку и карточки с новыми статусами "Вы записаны" / "Вы отказались"
             await renderGoogleCalendar();
             renderDayEventsDetails();
         } else {
@@ -355,18 +338,14 @@ function openConfirmDialogue(eventId, decision) {
         }
     };
 
-    // Кнопка "Отмена" — просто закрывает всплывающее окно
-    noBtn.onclick = () => {
-        modal.classList.add('hidden');
-    };
+    noBtn.onclick = () => { modal.classList.add('hidden'); };
 }
 
-// --- МЕНЕДЖМЕНТ СОБЫТИЙ МЕТОДОЛОГОМ (CRUD) ---
 function triggerCreateEvent(hourStr) {
     document.getElementById('editor-modal-title').innerText = "Настройка стратегического события";
     document.getElementById('edit-event-id').value = '';
     document.getElementById('event-title-input').value = '';
-    document.getElementById('event-time-input').value = hourStr; // Автоподстановка часа из строки клика
+    document.getElementById('event-time-input').value = hourStr; 
     document.getElementById('event-address-input').value = '';
     document.getElementById('btn-delete-event').style.display = 'none';
     document.getElementById('event-editor-modal').classList.remove('hidden');
@@ -378,7 +357,7 @@ function triggerEditEvent(id, title, time, address) {
     document.getElementById('event-title-input').value = title;
     document.getElementById('event-time-input').value = time;
     document.getElementById('event-address-input').value = address;
-    document.getElementById('btn-delete-event').style.display = 'block'; // Позволяем удалить
+    document.getElementById('btn-delete-event').style.display = 'block'; 
     document.getElementById('event-editor-modal').classList.remove('hidden');
 }
 
@@ -392,7 +371,7 @@ async function saveEventFromModal() {
     const event_time = document.getElementById('event-time-input').value;
     const address = document.getElementById('event-address-input').value;
 
-    if(!title || !event_time || !address) return alert("Все поля (Название, Время, Адрес) обязательны к заполнению.");
+    if(!title || !event_time || !address) return alert("Все поля обязательны к заполнению.");
 
     let url = '/api/events/create';
     let method = 'POST';
@@ -434,7 +413,6 @@ async function deleteEventFromModal() {
     }
 }
 
-// Табы управления
 function switchTab(tab) {
     document.getElementById('content-dashboard').classList.add('hidden');
     document.getElementById('content-calendar').classList.add('hidden');
@@ -442,7 +420,7 @@ function switchTab(tab) {
     document.getElementById('tab-calendar').classList.remove('active');
     
     document.getElementById(`content-${tab}`).classList.remove('hidden');
-    document.getElementById(`tab-${tab}`).classList.add('active');
+    document.getElementById(`tab-${tab}`).add ? document.getElementById(`tab-${tab}`).classList.add('active') : document.getElementById(`tab-${tab}`).className += ' active';
 
     if(tab === 'calendar') renderGoogleCalendar();
 }

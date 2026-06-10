@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Совет Директоров — Премиальное Пространство</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="auth-screen" class="screen">
+        <div class="auth-card">
+            <h2>СОВЕТ ДИРЕКТОРОВ</h2>
+            <p class="subtitle">Закрытая ИТ-экосистема платформы</p>
+            <div id="login-error" class="error-msg"></div>
+            <input type="email" id="email" placeholder="Ваш Email" value="белянин@test.ru">
+            <input type="password" id="password" placeholder="Пароль" value="123456">
+            <button onclick="handleLogin()">Войти в пространство</button>
+        </div>
+    </div>
+
+    <div id="main-screen" class="screen hidden">
+        <header>
+            <div class="logo">СОВЕТ ДИРЕКТОРОВ</div>
+            <div class="user-info">
+                <span id="user-display-name">Загрузка...</span>
+                <button onclick="handleLogout()" class="logout-btn">Выйти</button>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="active">Аналитика трекинга</button>
+            <button onclick="switchTab('calendar')" id="tab-calendar">Календарь Советов</button>
+        </nav>
+
+        <main class="tab-content">
+            <section id="content-dashboard">
+                <div id="resident-view" class="hidden">
+                    <div class="profile-card">
+                        <h3 id="res-name">ФИО</h3>
+                        <p><strong>Компания:</strong> <span id="res-company">-</span></p>
+                        <p><strong>Ниша:</strong> <span id="res-niche">-</span></p>
+                        <p><strong>Оборот:</strong> <span id="res-turnover">-</span></p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="metricsChart"></canvas>
+                    </div>
+                    <div class="notes-container">
+                        <h3>Рекомендации Спикеров & Методологов</h3>
+                        <div id="recommendations-block" class="premium-text-box"></div>
+                    </div>
+                </div>
+
+                <div id="speaker-view" class="hidden">
+                    <h3>Ваш совет директоров. Выберите резидента для управления:</h3>
+                    <div id="residents-list" class="grid-list"></div>
+                    
+                    <div id="editor-block" class="hidden editor-card">
+                        <h3 id="edit-resident-title">Редактирование данных</h3>
+                        <label>Период: <input type="month" id="edit-period" value="2026-06"></label>
+                        <div class="score-inputs">
+                            <label>Бизнес (1-10): <input type="number" id="score-biz" min="1" max="10"></label>
+                            <label>Команда (1-10): <input type="number" id="score-team" min="1" max="10"></label>
+                            <label>Здоровье (1-10): <input type="number" id="score-health" min="1" max="10"></label>
+                        </div>
+                        <label>Заметки методолога:</label>
+                        <textarea id="edit-comments" rows="3"></textarea>
+                        <label>Рекомендации спикера:</label>
+                        <textarea id="edit-recs" rows="3"></textarea>
+                        <button onclick="saveMetrics()" class="gold-btn">Сохранить изменения под NDA</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="content-calendar" class="hidden">
+                <h3>Ближайшие сессии и встречи</h3>
+                <div id="calendar-list" class="calendar-grid"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

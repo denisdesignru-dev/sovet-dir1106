@@ -2,82 +2,107 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Совет Директоров — Премиальное Пространство</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-    <div id="auth-screen" class="screen">
-        <div class="auth-card">
-            <h2>СОВЕТ ДИРЕКТОРОВ</h2>
-            <p class="subtitle">Закрытая ИТ-экосистема платформы</p>
-            <div id="login-error" class="error-msg"></div>
-            <input type="email" id="email" placeholder="Ваш Email" value="белянин@test.ru">
-            <input type="password" id="password" placeholder="Пароль" value="123456">
-            <button onclick="handleLogin()">Войти в пространство</button>
+    <header class="main-header">
+        <div class="logo-container">
+            <img src="logo.png" alt="Совет Директоров" class="club-logo">
         </div>
-    </div>
+        <div class="auth-block" id="authBlock">
+            <input type="email" id="emailInput" placeholder="belyanin@test.ru">
+            <input type="password" id="passwordInput" placeholder="••••••">
+            <button onclick="login()" class="btn-primary">Войти в пространство</button>
+        </div>
+        <div class="user-profile hidden" id="userProfileHeader">
+            <span id="userNameTop" class="user-name-span">Загрузка...</span>
+            <button onclick="logout()" class="btn-secondary">Выйти</button>
+        </div>
+    </header>
 
-    <div id="main-screen" class="screen hidden">
-        <header>
-            <div class="logo">СОВЕТ ДИРЕКТОРОВ</div>
-            <div class="user-info">
-                <span id="user-display-name">Загрузка...</span>
-                <button onclick="handleLogout()" class="logout-btn">Выйти</button>
+    <main class="dashboard-container">
+        <section class="resident-card">
+            <div class="card-header">
+                <span class="badge">Закрытая ИТ-экосистема платформы</span>
+                <h1 id="profileName">ФИО Резидента</h1>
             </div>
-        </header>
+            <div class="resident-meta-grid">
+                <div class="meta-item"><span>Компания:</span> <strong id="profileCompany">-</strong></div>
+                <div class="meta-item"><span>Ниша:</span> <strong id="profileNiche">-</strong></div>
+                <div class="meta-item"><span>Оборот:</span> <strong id="profileTurnover">-</strong></div>
+            </div>
+            <div class="action-tabs">
+                <button class="tab-btn active">Аналитика трекинга</button>
+                <button class="tab-btn">Календарь Советов</button>
+            </div>
+        </section>
 
-        <nav class="tabs">
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="active">Аналитика трекинга</button>
-            <button onclick="switchTab('calendar')" id="tab-calendar">Календарь Советов</button>
-        </nav>
-
-        <main class="tab-content">
-            <section id="content-dashboard">
-                <div id="resident-view" class="hidden">
-                    <div class="profile-card">
-                        <h3 id="res-name">ФИО</h3>
-                        <p><strong>Компания:</strong> <span id="res-company">-</span></p>
-                        <p><strong>Ниша:</strong> <span id="res-niche">-</span></p>
-                        <p><strong>Оборот:</strong> <span id="res-turnover">-</span></p>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="metricsChart"></canvas>
-                    </div>
-                    <div class="notes-container">
-                        <h3>Рекомендации Спикеров & Методологов</h3>
-                        <div id="recommendations-block" class="premium-text-box"></div>
-                    </div>
+        <section class="metrics-section">
+            <div class="section-title-block">
+                <h2>Колесо баланса резидента</h2>
+                <div class="period-picker">
+                    <label for="periodSelect">Период фиксации:</label>
+                    <input type="month" id="periodSelect" value="2026-06">
                 </div>
+            </div>
 
-                <div id="speaker-view" class="hidden">
-                    <h3>Ваш совет директоров. Выберите резидента для управления:</h3>
-                    <div id="residents-list" class="grid-list"></div>
-                    
-                    <div id="editor-block" class="hidden editor-card">
-                        <h3 id="edit-resident-title">Редактирование данных</h3>
-                        <label>Период: <input type="month" id="edit-period" value="2026-06"></label>
-                        <div class="score-inputs">
-                            <label>Бизнес (1-10): <input type="number" id="score-biz" min="1" max="10"></label>
-                            <label>Команда (1-10): <input type="number" id="score-team" min="1" max="10"></label>
-                            <label>Здоровье (1-10): <input type="number" id="score-health" min="1" max="10"></label>
+            <form id="metricsForm" onsubmit="saveMetrics(event)" class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-info">
+                        <h3>Дело / Бизнес</h3>
+                        <p>Управленческая модель, масштабирование, точки роста</p>
+                    </div>
+                    <div class="rating-selector" data-metric="business">
                         </div>
-                        <label>Заметки методолога:</label>
-                        <textarea id="edit-comments" rows="3"></textarea>
-                        <label>Рекомендации спикера:</label>
-                        <textarea id="edit-recs" rows="3"></textarea>
-                        <button onclick="saveMetrics()" class="gold-btn">Сохранить изменения под NDA</button>
-                    </div>
                 </div>
-            </section>
 
-            <section id="content-calendar" class="hidden">
-                <h3>Ближайшие сессии и встречи</h3>
-                <div id="calendar-list" class="calendar-grid"></div>
-            </section>
-        </main>
-    </div>
+                <div class="metric-card">
+                    <div class="metric-info">
+                        <h3>Команда & ФОТ</h3>
+                        <p>Оптимизация процессов, удержание ключевых людей</p>
+                    </div>
+                    <div class="rating-selector" data-metric="team"></div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-info">
+                        <h3>Здоровье & Энергия</h3>
+                        <p>Личная эффективность, уровень выгорания лидера</p>
+                    </div>
+                    <div class="rating-selector" data-metric="health"></div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-info">
+                        <h3>Отношения с близкими</h3>
+                        <p>Поддержка тыла, баланс между работой и семьей</p>
+                    </div>
+                    <div class="rating-selector" data-metric="relations"></div>
+                </div>
+
+                <div class="form-footer">
+                    <button type="submit" class="btn-submit-nda">Сохранить изменения под NDA</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="expert-notes-section">
+            <h2>Рекомендации Спикеров & Методологов</h2>
+            <div class="notes-grid">
+                <div class="note-box">
+                    <h4>Заметки методолога</h4>
+                    <p class="placeholder-text">Анализ рисков зависимости от одного поставщика. Требуется диверсификация через материковый Китай.</p>
+                </div>
+                <div class="note-box">
+                    <h4>Рекомендации спикера</h4>
+                    <p class="placeholder-text">Подготовка четких формулировок для таможенных деклараций во избежание двойной трактовки.</p>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script src="app.js"></script>
 </body>

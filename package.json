@@ -1,15 +1,14 @@
 {
-  "name": "sovet-platform",
+  "name": "sovet-directorov-platform",
   "version": "1.0.0",
-  "description": "IT-экосистема бизнес-клуба Совет Директоров",
+  "description": "Закрытая ИТ-экосистема платформы Совет Директоров",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "sqlite3": "^5.1.7"
+    "bcryptjs": "^2.4.3"
   }
 }

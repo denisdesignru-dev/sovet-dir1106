@@ -98,7 +98,7 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 
 // API Получения метрик конкретного резидента (для спикера)
 app.get('/api/resident/:id', authenticateToken, (req, res) => {
-    if (req.user.role !== 'speaker') return res.sendStatus(433);
+    if (req.user.role !== 'speaker') return res.sendStatus(403);
     const residentId = req.params.id;
     db.all("SELECT * FROM metrics WHERE resident_id = ? ORDER BY date_period ASC", [residentId], (err, metrics) => {
         res.json(metrics);

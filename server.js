@@ -36,7 +36,7 @@ db.exec(initSQL, async (err) => {
 );
             // Резидент 1 Совета
             db.run(`INSERT INTO users (email, password, role, full_name, company, niche, turnover, board_id) VALUES (?, ?, 'resident', 'Белянин Максим', 'ООО АММЕТА ГРУПП', 'Станки и Промтехника', '10.9 млн руб', 1)`, 
-    ['evgenia@test.ru', hashedPassword]);
+    ['belyanin@test.ru', hashedPassword]);
             
             // Демо-метрики для Максима (ID: 2) за Апрель и Май 2026
             db.run(`INSERT INTO metrics (resident_id, date_period, business_score, team_score, health_score, comments, recommendations) VALUES (2, '2026-04', 6, 5, 7, 'Апрельские итоги', 'Фокус на продажи')`);

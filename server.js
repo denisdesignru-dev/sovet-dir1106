@@ -152,3 +152,53 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));
+
+// 1. Создаем таблицу метрик (если еще нет)
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS user_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        period TEXT, -- Например, "2026-06"
+        business INTEGER,
+        team INTEGER,
+        health INTEGER,
+        relations INTEGER,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+});
+
+// 2. Эндпоинт для сохранения метрик (1 раз в месяц)
+app.post('/api/metrics', authenticateToken, (req, res) => {
+    const { period, business, team, health, relations } = req.body;
+    const userId = req.user.id;
+
+    if (!period || !business || !team || !health || !relations) {
+        return res.status(400).json({ error: "Все поля должны быть заполнены значениями от 1 до 10" });
+    }
+
+    // Проверяем, есть ли уже запись за этот период
+    db.get(`SELECT id FROM user_metrics WHERE user_id = ? AND period = ?`, [userId, period], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        if (row) {
+            // Если запись есть — обновляем её
+            db.run(`UPDATE user_metrics SET business = ?, team = ?, health = ?, relations = ?, timestamp = CURRENT_TIMESTAMP WHERE id = ?`,
+                [business, team, health, relations, row.id],
+                function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ message: "Показатели за этот месяц успешно обновлены под NDA." });
+                }
+            );
+        } else {
+            // Если записи нет — создаем новую
+            db.run(`INSERT INTO user_metrics (user_id, period, business, team, health, relations) VALUES (?, ?, ?, ?, ?, ?)`,
+                [userId, period, business, team, health, relations],
+                function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.json({ message: "Показатели за текущий месяц успешно зафиксированы под NDA." });
+                }
+            );
+        }
+    });
+});

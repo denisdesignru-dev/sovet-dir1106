@@ -32,7 +32,7 @@ db.exec(initSQL, async (err) => {
             
             // Спикер 1 Совета
             db.run(`INSERT INTO users (email, password, role, full_name, board_id) VALUES (?, ?, 'speaker', 'Евгения (Спикер)', 1)`, 
-   ['evgenia@test.ru', hashedPassword]
+   ['admin@test.ru', hashedPassword]
 );
             // Резидент 1 Совета
             db.run(`INSERT INTO users (email, password, role, full_name, company, niche, turnover, board_id) VALUES (?, ?, 'resident', 'Белянин Максим', 'ООО АММЕТА ГРУПП', 'Станки и Промтехника', '10.9 млн руб', 1)`, 

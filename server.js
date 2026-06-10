@@ -149,6 +149,6 @@ app.post('/api/events/rsvp', authenticateToken, (req, res) => {
 });
 // Подстраховка: отдаем index.html при заходе на главную страницу
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 app.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));

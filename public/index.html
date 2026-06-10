@@ -3,106 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Совет Директоров — Премиальное Пространство</title>
+    <title>Совет Директоров</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="alternate icon" href="favicon.png" type="image/png">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-    <header class="main-header">
-        <div class="logo-container">
-            <img src="logo.png" alt="Совет Директоров" class="club-logo">
-        </div>
-        <div class="auth-block" id="authBlock">
-            <input type="email" id="emailInput" placeholder="belyanin@test.ru">
-            <input type="password" id="passwordInput" placeholder="••••••">
-            <button onclick="login()" class="btn-primary">Войти в пространство</button>
-        </div>
-        <div class="user-profile hidden" id="userProfileHeader">
-            <span id="userNameTop" class="user-name-span">Загрузка...</span>
-            <button onclick="logout()" class="btn-secondary">Выйти</button>
-        </div>
-    </header>
-
-    <main class="dashboard-container">
-        <section class="resident-card">
-            <div class="card-header">
-                <span class="badge">Закрытая ИТ-экосистема платформы</span>
-                <h1 id="profileName">ФИО Резидента</h1>
+    <div id="auth-screen" class="auth-wrapper">
+        <div class="auth-container">
+            <div class="auth-logo-zone">
+                <img src="logo.png" alt="Совет Директоров" class="auth-logo">
             </div>
-            <div class="resident-meta-grid">
-                <div class="meta-item"><span>Компания:</span> <strong id="profileCompany">-</strong></div>
-                <div class="meta-item"><span>Ниша:</span> <strong id="profileNiche">-</strong></div>
-                <div class="meta-item"><span>Оборот:</span> <strong id="profileTurnover">-</strong></div>
-            </div>
-            <div class="action-tabs">
-                <button class="tab-btn active">Аналитика трекинга</button>
-                <button class="tab-btn">Календарь Советов</button>
-            </div>
-        </section>
-
-        <section class="metrics-section">
-            <div class="section-title-block">
-                <h2>Колесо баланса резидента</h2>
-                <div class="period-picker">
-                    <label for="periodSelect">Период фиксации:</label>
-                    <input type="month" id="periodSelect" value="2026-06">
+            <form onsubmit="event.preventDefault(); handleLogin();" class="auth-form">
+                <h2>Вход в ИТ-экосистему</h2>
+                <p class="auth-subtitle">Доступ только для действующих резидентов и методологов клуба</p>
+                
+                <div class="input-group">
+                    <label>Электронная почта</label>
+                    <input type="email" id="email" placeholder="name@domain.com" required>
                 </div>
-            </div>
-
-            <form id="metricsForm" onsubmit="saveMetrics(event)" class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-info">
-                        <h3>Дело / Бизнес</h3>
-                        <p>Управленческая модель, масштабирование, точки роста</p>
-                    </div>
-                    <div class="rating-selector" data-metric="business">
-                        </div>
+                
+                <div class="input-group">
+                    <label>Пароль</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
                 </div>
-
-                <div class="metric-card">
-                    <div class="metric-info">
-                        <h3>Команда & ФОТ</h3>
-                        <p>Оптимизация процессов, удержание ключевых людей</p>
-                    </div>
-                    <div class="rating-selector" data-metric="team"></div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-info">
-                        <h3>Здоровье & Энергия</h3>
-                        <p>Личная эффективность, уровень выгорания лидера</p>
-                    </div>
-                    <div class="rating-selector" data-metric="health"></div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-info">
-                        <h3>Отношения с близкими</h3>
-                        <p>Поддержка тыла, баланс между работой и семьей</p>
-                    </div>
-                    <div class="rating-selector" data-metric="relations"></div>
-                </div>
-
-                <div class="form-footer">
-                    <button type="submit" class="btn-submit-nda">Сохранить изменения под NDA</button>
-                </div>
+                
+                <div id="login-error" class="error-message"></div>
+                
+                <button type="submit" class="btn-premium-auth">Инициировать сессию</button>
             </form>
-        </section>
+        </div>
+    </div>
 
-        <section class="expert-notes-section">
-            <h2>Рекомендации Спикеров & Методологов</h2>
-            <div class="notes-grid">
-                <div class="note-box">
-                    <h4>Заметки методолога</h4>
-                    <p class="placeholder-text">Анализ рисков зависимости от одного поставщика. Требуется диверсификация через материковый Китай.</p>
-                </div>
-                <div class="note-box">
-                    <h4>Рекомендации спикера</h4>
-                    <p class="placeholder-text">Подготовка четких формулировок для таможенных деклараций во избежание двойной трактовки.</p>
-                </div>
+    <div id="main-screen" class="main-system-wrapper hidden">
+        
+        <header class="system-header">
+            <div class="logo-area">
+                <img src="logo.png" alt="Совет Директоров" class="inner-logo">
             </div>
-        </section>
-    </main>
+            <nav class="system-nav">
+                <button id="tab-dashboard" class="nav-link active" onclick="switchTab('dashboard')">Панель управления</button>
+                <button id="tab-calendar" class="nav-link" onclick="switchTab('calendar')">Календарь Советов</button>
+            </nav>
+            <div class="profile-area">
+                <span id="user-display-name" class="role-badge">Загрузка...</span>
+                <button onclick="handleLogout()" class="btn-logout-minimal">Выйти</button>
+            </div>
+        </header>
+
+        <main class="system-content">
+            
+            <div id="content-dashboard" class="tab-content-block">
+                
+                <div id="resident-view" class="view-pane hidden">
+                    <section class="resident-hero-card">
+                        <div class="hero-main-info">
+                            <span class="gold-label">Личное пространство резидента</span>
+                            <h1 id="res-name">ФИО Резидента</h1>
+                            <div class="meta-brutal-grid">
+                                <div class="meta-cell"><span>Компания</span><strong id="res-company">-</strong></div>
+                                <div class="meta-cell"><span>Ниша бизнеса</span><strong id="res-niche">-</strong></div>
+                                <div class="meta-cell"><span>Годовой оборот</span><strong id="res-turnover">-</strong></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="dashboard-workspace-grid">
+                        <div class="workspace-card chart-card">
+                            <h3>Аналитика трекинга аспектов</h3>
+                            <div class="chart-container-wrapper">
+                                <canvas id="metricsChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="workspace-card self-metrics-card">
+                            <div class="card-title-flex">
+                                <h3>Фиксация показателей месяца</h3>
+                                <input type="month" id="periodSelect" value="2026-06" class="dark-month-picker">
+                            </div>
+                            <p class="card-desc-text">Оценка личного и бизнес-состояния по шкале от 1 до 10. Данные защищены сквозным NDA.</p>
+                            
+                            <form id="residentMetricsForm" onsubmit="saveResidentSelfMetrics(event)" class="interactive-rating-form">
+                                <div class="rating-row">
+                                    <div class="row-info">
+                                        <h4>Дело / Бизнес</h4>
+                                        <p>Управленческая модель, точки масштабирования</p>
+                                    </div>
+                                    <div class="rating-selector" data-metric="business"></div>
+                                </div>
+                                <div class="rating-row">
+                                    <div class="row-info">
+                                        <h4>Команда & ФОТ</h4>
+                                        <p>Оптимизация процессов, удержание ключевых кадров</p>
+                                    </div>
+                                    <div class="rating-selector" data-metric="team"></div>
+                                </div>
+                                <div class="rating-row">
+                                    <div class="row-info">
+                                        <h4>Здоровье & Энергия</h4>
+                                        <p>Личная эффективность лидера, уровень выгорания</p>
+                                    </div>
+                                    <div class="rating-selector" data-metric="health"></div>
+                                </div>
+                                <div class="rating-row">
+                                    <div class="row-info">
+                                        <h4>Отношения с близкими</h4>
+                                        <p>Баланс между жестким графиком и семейным тылом</p>
+                                    </div>
+                                    <div class="rating-selector" data-metric="relations"></div>
+                                </div>
+                                <button type="submit" class="btn-gold-action">Зафиксировать состояние в базе</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <section class="expert-recommendations-section">
+                        <h3>Официальные директивы и рекомендации Советов</h3>
+                        <div id="recommendations-block" class="recommendations-container-grid">
+                            </div>
+                    </section>
+                </div>
+
+                <div id="speaker-view" class="view-pane hidden">
+                    <div class="speaker-layout-grid">
+                        <div class="residents-sidebar-card">
+                            <h3>Реестр участников клуба</h3>
+                            <p class="subtitle-text">Выберите резидента для управления метриками и добавления рекомендаций</p>
+                            <div id="residents-list" class="vertical-residents-list">
+                                </div>
+                        </div>
+
+                        <div id="editor-block" class="editor-main-card hidden">
+                            <h3 id="edit-resident-title">Управление трекингом</h3>
+                            
+                            <div class="editor-inputs-grid">
+                                <div class="input-group">
+                                    <label>Отчетный период</label>
+                                    <input type="month" id="edit-period" value="2026-06" class="dark-month-picker">
+                                </div>
+                                <div class="input-group">
+                                    <label>Бизнес (1-10)</label>
+                                    <input type="number" id="score-biz" min="1" max="10">
+                                </div>
+                                <div class="input-group">
+                                    <label>Команда (1-10)</label>
+                                    <input type="number" id="score-team" min="1" max="10">
+                                </div>
+                                <div class="input-group">
+                                    <label>Здоровье (1-10)</label>
+                                    <input type="number" id="score-health" min="1" max="10">
+                                </div>
+                            </div>
+
+                            <div class="input-group textarea-group">
+                                <label>Развернутые комментарии методолога (внутренние)</label>
+                                <textarea id="edit-comments" rows="4" placeholder="Анализ структуры, скрытые перегрузы..."></textarea>
+                            </div>
+
+                            <div class="input-group textarea-group">
+                                <label>Официальные рекомендации для Резидента (отображаются в его ЛК)</label>
+                                <textarea id="edit-recs" rows="4" placeholder="Внедрить диверсификацию цепочек поставок..."></textarea>
+                            </div>
+
+                            <button onclick="saveSpeakerTrackingMetrics()" class="btn-gold-action">Утвердить и отправить изменения</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="content-calendar" class="tab-content-block hidden">
+                <section class="calendar-workspace">
+                    <div class="calendar-header-info">
+                        <h2>Календарь стратегических сессий и Советов</h2>
+                        <p>Резервируйте участие в приватных встречах заранее.</p>
+                    </div>
+                    <div id="calendar-list" class="calendar-cards-grid">
+                        </div>
+                </section>
+            </div>
+
+        </main>
+    </div>
 
     <script src="app.js"></script>
 </body>

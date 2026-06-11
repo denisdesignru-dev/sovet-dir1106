@@ -216,11 +216,14 @@ function closeAddResidentModal() {
 
 async function submitNewResident() {
     const emailVal = document.getElementById('add-res-email').value;
-    
+    // Проверяем наличие инпута пароля в вашей HTML разметке, если нет — ставим дефолт '123456'
+    const passwordInput = document.getElementById('add-res-password'); 
+    const passwordVal = passwordInput ? passwordInput.value : '123456';
+
     const payload = {
         fullName: document.getElementById('add-res-name').value,
         email: emailVal,
-        password: emailVal, // ВАЖНО: Отправляем email в качестве временного пароля для первого входа!
+        password: passwordVal,
         company: document.getElementById('add-res-company').value,
         niche: document.getElementById('add-res-niche').value,
         turnover: document.getElementById('add-res-turnover').value,
@@ -233,13 +236,14 @@ async function submitNewResident() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
     });
+    
     if (res.ok) {
-        alert(`Резидент успешно создан! Логин: ${emailVal}, Пароль по умолчанию: ${emailVal}`);
+        alert(`Резидент успешно создан!\nЛогин: ${emailVal}\nПароль: ${passwordVal}`);
         closeAddResidentModal();
         loadDashboardData();
     } else {
-        const errData = await res.json();
-        alert("Ошибка создания: " + (errData.error || errData.message));
+        const data = await res.json();
+        alert("Ошибка: " + (data.error || "Не удалось создать резидента"));
     }
 }
 
@@ -460,14 +464,13 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // --- ДОБАВЛЕНИЕ: Кнопка создания события на ПК для методолога/админа ---
+    // Кнопка создания события на ПК для методолога/админа
     if (currentRole === 'speaker' || currentRole === 'admin') {
         const createBtnPC = document.createElement('button');
         createBtnPC.className = "btn-primary";
-        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px;";
+        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px; background: var(--accent-gold); color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;";
         createBtnPC.innerText = "➕ Добавить событие в этот день";
         createBtnPC.onclick = () => {
-            // Вызываем вашу штатную функцию открытия редактора, передавая дефолтное время
             triggerCreateEvent("12:00"); 
         };
         listContainer.appendChild(createBtnPC);
@@ -585,11 +588,10 @@ function triggerCreateEvent(hourStr) {
     document.getElementById('event-date-input').value = currentSelectedDateStr;
     document.getElementById('btn-delete-event').style.display = 'none';
     
-    // ПРИНУДИТЕЛЬНО: Вытаскиваем модалку на передний план для мобилок
+    // Принудительно выводим окно поверх мобильного таймлайна
     editorModal.style.zIndex = '4000'; 
     editorModal.classList.remove('hidden');
 }
-
 function triggerEditEvent(id, title, time, address, dateStr) {
     document.getElementById('editor-modal-title').innerText = "Редактировать событие";
     document.getElementById('edit-event-id').value = id;

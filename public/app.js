@@ -4,7 +4,9 @@ let cachedEvents = [];
 let cachedRsvps = [];
 let currentSelectedDateStr = ''; 
 
+// Главный инициализатор приложения
 document.addEventListener('DOMContentLoaded', () => {
+    // Проверяем токен напрямую без вызова несуществующей функции
     if (token) {
         showMainSpace();
     } else {
@@ -13,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNavigation();
 });
 
-// Интеграция функции входа с index.html onclick="handleLogin()"
+// Интеграция функции входа с index.html (onclick="handleLogin()")
 async function handleLogin() {
     const emailElem = document.getElementById('email');
     const passwordElem = document.getElementById('password');
@@ -43,7 +45,7 @@ async function handleLogin() {
         localStorage.setItem('token', token);
         showMainSpace();
     } catch (err) {
-        console.error(err);
+        console.error("Ошибка при авторизации:", err);
     }
 }
 
@@ -73,7 +75,7 @@ async function loadDashboardData() {
         const data = await res.json();
         
         if (data.type === 'admin' || data.type === 'speaker') {
-            currentRole = 'speaker'; 
+            currentRole = data.type; 
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
             renderRegistry(data.residents);
@@ -91,7 +93,7 @@ async function loadDashboardData() {
         }
         await loadCalendarEvents();
     } catch (err) {
-        console.error("Ошибка дашборда:", err);
+        console.error("Ошибка загрузки дашборда:", err);
     }
 }
 
@@ -120,7 +122,6 @@ function setupNavigation() {
     const monthSelect = document.getElementById('calendar-month-select');
     if (monthSelect) monthSelect.addEventListener('change', loadCalendarEvents);
 
-    // Закрытие модального окна просмотра дня
     const closeDayModalBtn = document.getElementById('close-day-modal-btn');
     if (closeDayModalBtn) {
         closeDayModalBtn.addEventListener('click', () => {
@@ -237,7 +238,6 @@ function renderDayEventsDetails() {
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
     const isManager = currentRole === 'speaker' || currentRole === 'admin';
 
-    // Добавление кнопки создания для администратора СРАЗУ и НА ВСЕ ДНИ
     if (isManager) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -282,11 +282,9 @@ function renderDayEventsDetails() {
 }
 
 function triggerCreateEvent(defaultTime = "12:00") {
-    // Скрываем окно дня
     const dayModal = document.getElementById('day-modal');
     if (dayModal) dayModal.classList.add('hidden');
 
-    // Открываем модальное окно создания/редактирования из вашей разметки
     const editorModal = document.getElementById('editor-modal');
     if (editorModal) {
         editorModal.classList.remove('hidden');
@@ -304,7 +302,6 @@ function triggerCreateEvent(defaultTime = "12:00") {
     }
 }
 
-// Открытие окна для редактирования существующего события
 window.triggerEditEvent = function(id, title, time, address, date) {
     const dayModal = document.getElementById('day-modal');
     if (dayModal) dayModal.classList.add('hidden');
@@ -331,7 +328,6 @@ window.closeEditorModal = function() {
     if (editorModal) editorModal.classList.add('hidden');
 }
 
-// Сохранение (Создание или Изменение) из модального окна
 window.saveEventFromModal = async function() {
     const id = document.getElementById('edit-event-id').value;
     const title = document.getElementById('event-title-input').value;
@@ -362,7 +358,6 @@ window.saveEventFromModal = async function() {
     }
 }
 
-// Удаление события
 window.deleteEventFromModal = async function() {
     const id = document.getElementById('edit-event-id').value;
     if (!id) return;
@@ -383,7 +378,56 @@ window.deleteEventFromModal = async function() {
     }
 }
 
-// Открытие профиля резидента из общего реестра спикера
+// Управление модальными окнами добавления резидентов методологом (из index.html)
+window.openAddResidentModal = function() {
+    const modal = document.getElementById('add-resident-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+window.closeAddResidentModal = function() {
+    const modal = document.getElementById('add-resident-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+window.saveResident = async function() {
+    const fullName = document.getElementById('new-res-name').value;
+    const email = document.getElementById('new-res-email').value;
+    const company = document.getElementById('new-res-company').value;
+    const niche = document.getElementById('new-res-niche').value;
+    const turnover = document.getElementById('new-res-turnover').value;
+    const entryRequest = document.getElementById('new-res-request').value;
+
+    if (!fullName || !email) {
+        alert("Имя и Email обязательны для заполнения!");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/residents/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ fullName, email, company, niche, turnover, entryRequest })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            closeAddResidentModal();
+            // Очищаем форму
+            document.getElementById('new-res-name').value = '';
+            document.getElementById('new-res-email').value = '';
+            document.getElementById('new-res-company').value = '';
+            document.getElementById('new-res-niche').value = '';
+            document.getElementById('new-res-turnover').value = '';
+            document.getElementById('new-res-request').value = '';
+            // Обновляем список
+            await loadDashboardData();
+        } else {
+            alert(data.error || "Ошибка при создании резидента");
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 window.openResidentProfile = async function(id) {
     try {
         const res = await fetch(`/api/resident/${id}`, {
@@ -392,17 +436,20 @@ window.openResidentProfile = async function(id) {
         if (!res.ok) return;
         const data = await res.json();
         
-        // Подставляем данные в разметку просмотра карточки резидента методологом
         if (document.getElementById('profile-full-name')) document.getElementById('profile-full-name').innerText = data.profile.full_name || '-';
         if (document.getElementById('profile-company')) document.getElementById('profile-company').innerText = data.profile.company || '-';
         if (document.getElementById('profile-niche')) document.getElementById('profile-niche').innerText = data.profile.niche || '-';
         if (document.getElementById('profile-turnover')) document.getElementById('profile-turnover').innerText = data.profile.turnover || '-';
         if (document.getElementById('profile-entry-request')) document.getElementById('profile-entry-request').innerText = data.profile.entry_request || '-';
         
-        // Показываем блок с анкетой, убирая скрывающий класс
         const detailsBlock = document.getElementById('resident-details-block');
         if (detailsBlock) detailsBlock.classList.remove('hidden');
     } catch (err) {
         console.error(err);
     }
+}
+
+window.closeResidentDetails = function() {
+    const detailsBlock = document.getElementById('resident-details-block');
+    if (detailsBlock) detailsBlock.classList.add('hidden');
 }

@@ -1,11 +1,9 @@
-// Глобальное состояние приложения
 let token = localStorage.getItem('token') || '';
-let currentRole = ''; // 'admin' или 'resident'
+let currentRole = ''; 
 let cachedEvents = [];
 let cachedRsvps = [];
-let currentSelectedDateStr = ''; // Важно: хранит YYYY-MM-DD выбранного дня
+let currentSelectedDateStr = ''; 
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     initAuth();
     setupNavigation();
@@ -74,17 +72,13 @@ async function loadDashboardData() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) { logout(); return; }
-        
         const data = await res.json();
         
-        // Обрабатываем роли админа/методолога
         if (data.type === 'admin' || data.type === 'speaker') {
-            currentRole = 'speaker'; // оставляем 'speaker' для совместимости с HTML id="speaker-view"
-            
+            currentRole = 'speaker'; 
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
             
-            // Безопасный поиск кнопки добавления участников
             const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('btn-add-speaker-resident');
             if (addResBtn) addResBtn.classList.remove('hidden');
             
@@ -100,15 +94,11 @@ async function loadDashboardData() {
             renderResidentDashboard(data);
         }
         
-        // Инициализируем календарь
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
         const monthInput = document.getElementById('calendar-month-select');
         if (monthInput && !monthInput.value) {
-            monthInput.value = `${year}-${month}`;
+            monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         }
-        
         await loadCalendarEvents();
     } catch (err) {
         console.error("Ошибка дашборда:", err);
@@ -138,11 +128,8 @@ function setupNavigation() {
     }
 
     const monthSelect = document.getElementById('calendar-month-select');
-    if (monthSelect) {
-        monthSelect.addEventListener('change', loadCalendarEvents);
-    }
+    if (monthSelect) monthSelect.addEventListener('change', loadCalendarEvents);
 
-    // Закрытие модального окна дня
     const closeDayModalBtn = document.getElementById('close-day-modal-btn');
     if (closeDayModalBtn) {
         closeDayModalBtn.addEventListener('click', () => {
@@ -175,14 +162,11 @@ function renderResidentDashboard(data) {
     if (document.getElementById('res-turnover')) document.getElementById('res-turnover').innerText = data.profile?.turnover || '-';
 }
 
-// --- ЛОГИКА КАЛЕНДАРЯ ---
 async function loadCalendarEvents() {
     const monthInput = document.getElementById('calendar-month-select');
     if (!monthInput || !monthInput.value) return;
-    const targetPeriod = monthInput.value; // YYYY-MM
-
     try {
-        const res = await fetch(`/api/events/month/${targetPeriod}`, {
+        const res = await fetch(`/api/events/month/${monthInput.value}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -202,32 +186,25 @@ function renderGoogleCalendar() {
 
     grid.innerHTML = '';
     const [year, month] = monthInput.value.split('-').map(Number);
-
     const firstDay = new Date(year, month - 1, 1);
     let startDayOfWeek = firstDay.getDay(); 
-    if (startDayOfWeek === 0) startDayOfWeek = 7; // Переводим ВС на 7 место
+    if (startDayOfWeek === 0) startDayOfWeek = 7;
 
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    // Пустые ячейки в начале месяца
     for (let i = 1; i < startDayOfWeek; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = 'calendar-cell empty';
         grid.appendChild(emptyCell);
     }
 
-    // Отрисовка дней месяца
     for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
         cell.className = 'calendar-cell';
-
-        const dayStr = String(day).padStart(2, '0');
-        const monthStr = String(month).padStart(2, '0');
-        const fullDateStr = `${year}-${monthStr}-${dayStr}`;
+        const fullDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
         cell.innerHTML = `<div class="day-number">${day}</div>`;
 
-        // Ищем события на этот день
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
         if (dayEvents.length > 0) {
             cell.classList.add('has-events');
@@ -237,12 +214,10 @@ function renderGoogleCalendar() {
             cell.appendChild(badge);
         }
 
-        // Железобетонный клик по дню на ПК и смартфонах
-        cell.onclick = (e) => {
+        cell.onclick = () => {
             currentSelectedDateStr = fullDateStr; 
             openDayModal(fullDateStr);
         };
-
         grid.appendChild(cell);
     }
 }
@@ -261,7 +236,6 @@ function openDayModal(dateStr) {
         const parts = dateStr.split('-');
         titleElem.innerText = `События на ${parts[2]}.${parts[1]}.${parts[0]}`;
     }
-    
     renderDayEventsDetails();
 }
 
@@ -274,7 +248,7 @@ function renderDayEventsDetails() {
     const isManager = currentRole === 'speaker' || currentRole === 'admin' || 
                       (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
 
-    // Кнопка добавления создается ПЕРВОЙ и ВСЕГДА видна методологу/админу
+    // Кнопка рендерится в первую очередь и никогда не стирается
     if (isManager) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -345,16 +319,12 @@ function renderDayEventsDetails() {
     });
 }
 
-// Интеграция с вашей формой создания событий
 function triggerCreateEvent(defaultTime = "12:00") {
-    // Закрываем окно просмотра дня
     const dayModal = document.getElementById('day-modal');
     if (dayModal) dayModal.classList.add('hidden');
 
-    // Находим форму/модалку создания события в вашей верстке
     const createModal = document.getElementById('create-event-modal') || document.getElementById('event-form-modal');
     if (!createModal) {
-        // Подстраховка на случай, если форма создания вызывается через кастомный prompt
         const title = prompt("Введите название события:");
         if (!title) return;
         const address = prompt("Введите адрес локации:", "Пресненская наб., 12");
@@ -367,7 +337,6 @@ function triggerCreateEvent(defaultTime = "12:00") {
         return;
     }
 
-    // Если модалка в HTML есть, заполняем её поля данными
     createModal.classList.remove('hidden');
     createModal.style.display = 'block';
 

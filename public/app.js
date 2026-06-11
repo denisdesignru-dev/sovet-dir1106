@@ -447,8 +447,19 @@ function selectMobileTimelineDate(dateStr) {
 
 function openDayModal(dateStr) {
     currentSelectedDateStr = dateStr;
-    document.getElementById('day-modal').classList.remove('hidden');
-    document.getElementById('modal-day-title').innerText = `События на ${dateStr}`;
+    const dayModal = document.getElementById('day-modal');
+    if (!dayModal) return;
+    
+    dayModal.classList.remove('hidden');
+    
+    const titleElem = document.getElementById('modal-day-title');
+    if (titleElem) {
+        // Красиво форматируем дату из YYYY-MM-DD в DD.MM.YYYY
+        const parts = dateStr.split('-');
+        titleElem.innerText = `События на ${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    
+    // Перерисовываем содержимое (включая нашу кнопку)
     renderDayEventsDetails();
 }
 
@@ -464,11 +475,15 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // 1. Кнопка создания события на ПК теперь рендерится в первую очередь и всегда видна методологу/админу
-    if (currentRole === 'speaker' || currentRole === 'admin') {
+    // ИСПРАВЛЕНИЕ: Расширяем проверку. Если роль speaker, admin ИЛИ на экране отображается speaker-view
+    const isMethodologist = currentRole === 'speaker' || 
+                            currentRole === 'admin' || 
+                            (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
+
+    if (isMethodologist) {
         const createBtnPC = document.createElement('button');
         createBtnPC.className = "btn-primary";
-        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px; background: var(--accent-gold); color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;";
+        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px; background: #b59473; color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: block !important;";
         createBtnPC.innerText = "➕ Добавить событие в этот день";
         createBtnPC.onclick = () => {
             triggerCreateEvent("12:00"); 
@@ -476,26 +491,24 @@ function renderDayEventsDetails() {
         listContainer.appendChild(createBtnPC);
     }
 
-    // 2. Если событий нет, просто дописываем текст вниз, но НЕ прерываем функцию через return
     if (dayEvents.length === 0) {
-        listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted);">Событий не запланировано.</p>`;
-        return; // Тут ретурн безопасен, так как кнопка уже добавлена выше
+        listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted); width: 100%;">Событий не запланировано.</p>`;
+        return; 
     }
 
-    // 3. Если события есть — рендерим их карточки
     dayEvents.forEach(e => {
         const card = document.createElement('div');
         card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px;";
         
         let actionButtonsHtml = '';
-        if (currentRole === 'speaker' || currentRole === 'admin') {
+        if (isMethodologist) {
             actionButtonsHtml = `
                 <button class="btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-top:10px;" 
                     onclick="triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}', '${e.event_date}')">
                     Редактировать / Удалить
                 </button>
             `;
-        } else if (currentRole === 'resident') {
+        } else {
             const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
             if (userRsvp) {
                 actionButtonsHtml = `<div style="font-weight:600; margin-top:10px;">${userRsvp.status === 'going' ? 'Вы записаны' : 'Вы отказались'}</div>`;
@@ -512,7 +525,7 @@ function renderDayEventsDetails() {
         }
 
         let adminCounterHtml = '';
-        if (currentRole === 'speaker' || currentRole === 'admin') {
+        if (isMethodologist) {
             adminCounterHtml = `
                 <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
                     <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" 

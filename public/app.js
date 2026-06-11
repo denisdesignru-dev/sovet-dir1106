@@ -73,10 +73,11 @@ async function loadDashboardData() {
         document.getElementById('resident-view').classList.add('hidden');
         document.getElementById('global-add-resident-btn').classList.remove('hidden');
         
+        // Исправление: Выводим Логин (Email) после ФИО резидента в реестре методолога
         const listContainer = document.getElementById('residents-list');
         listContainer.innerHTML = data.residents.map(r => `
             <div class="resident-item" onclick="openSpeakerEditor(${r.id}, '${r.full_name}')">
-                <h4>${r.full_name}</h4>
+                <h4>${r.full_name} <span style="font-size:0.85rem; color:var(--accent-gold); font-weight:400;">(${r.email})</span></h4>
                 <p style="color:var(--text-muted); font-size:0.9rem; margin-top:5px;">${r.company} — ${r.niche}</p>
             </div>
         `).join('');
@@ -100,19 +101,21 @@ function closeAddResidentModal() { document.getElementById('add-resident-modal')
 async function submitNewResident() {
     const payload = {
         fullName: document.getElementById('add-res-name').value,
+        email: document.getElementById('add-res-email').value, // Передаем кастомный email из формы
         company: document.getElementById('add-res-company').value,
         niche: document.getElementById('add-res-niche').value,
         turnover: document.getElementById('add-res-turnover').value,
         entryRequest: document.getElementById('add-res-request').value
     };
+    if(!payload.email) { alert("Пожалуйста, заполните поле Email"); return; }
+
     const res = await fetch('/api/residents/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
     });
     if (res.ok) {
-        const data = await res.json();
-        alert(`Резидент успешно добавлен! Сгенерированный логин: ${data.email}`);
+        alert(`Резидент успешно добавлен! Доступ открыт для: ${payload.email}`);
         closeAddResidentModal();
         loadDashboardData();
     }
@@ -160,7 +163,7 @@ async function submitSessionResults() {
     }
 }
 
-// Изменено: Методолог теперь видит ВСЕ блоки («Итоги встречи» + «Комментарии и рекомендации»)
+// Изменение порядка: Сначала группируются ВСЕ "Итоги встреч", а затем ВСЕ "Комментарии и рекомендации"
 async function openSpeakerEditor(residentId, name) {
     selectedResidentId = residentId;
     document.getElementById('editor-block').classList.remove('hidden');
@@ -172,15 +175,17 @@ async function openSpeakerEditor(residentId, name) {
     const logsContainer = document.getElementById('extended-view-logs');
     logsContainer.innerHTML = `<h4>Первоначальный входной запрос:</h4><p style="color:var(--text-muted); margin-bottom:20px; font-size:0.95rem;">${data.profile.entry_request || 'Не указан'}</p>`;
     
-    if(data.metrics.length === 0 || !data.metrics.some(m => m.summary_title || m.recs_title)) {
+    if(data.metrics.length === 0) {
         logsContainer.innerHTML += `<p style="color:var(--text-muted); font-size:0.9rem;">Логи по встречам и рекомендациям пока отсутствуют.</p>`;
         return;
     }
 
+    let summaryHtml = "";
+    let recommendationsHtml = "";
+
     data.metrics.forEach(m => {
-        // Блок 1: Итоги встречи (если заполнены)
         if(m.summary_title) {
-            logsContainer.innerHTML += `
+            summaryHtml += `
                 <div class="log-segment-box">
                     <h5>📋 ${m.summary_title}</h5>
                     <p class="sub-meta-p">Дата проведения: ${m.summary_date} | Период: ${m.date_period}</p>
@@ -190,9 +195,8 @@ async function openSpeakerEditor(residentId, name) {
                 </div>
             `;
         }
-        // Блок 2: Комментарии и рекомендации (если заполнены)
         if(m.recs_title) {
-            logsContainer.innerHTML += `
+            recommendationsHtml += `
                 <div class="log-segment-box" style="border-left: 3px solid var(--accent-gold);">
                     <h5>🎯 Комментарии и рекомендации: ${m.recs_title}</h5>
                     <p class="sub-meta-p">Отчетный период: ${m.date_period}</p>
@@ -201,9 +205,10 @@ async function openSpeakerEditor(residentId, name) {
             `;
         }
     });
+
+    logsContainer.innerHTML += summaryHtml + recommendationsHtml;
 }
 
-// Календарь с Google Calendar логикой для узких дисплеев
 async function renderGoogleCalendar() {
     const pickerVal = document.getElementById('calendarMonthPicker').value;
     if (!pickerVal) return;
@@ -234,7 +239,6 @@ async function renderGoogleCalendar() {
         const dayStr = String(day).padStart(2, '0');
         const fullDateStr = `${pickerVal}-${dayStr}`;
         
-        // Клик по ячейке: на десктопе открывает модалку, на мобильном переключает нижнюю ленту
         cell.onclick = (e) => {
             if(!e.target.classList.contains('counter-badge-clickable')) {
                 if(window.innerWidth <= 768) {
@@ -248,18 +252,15 @@ async function renderGoogleCalendar() {
         cell.innerHTML = `<span class="cell-day-number">${day}</span>`;
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
         
-        // Контейнер точек для адаптива
         const dotsContainer = document.createElement('div');
         dotsContainer.className = 'mobile-dots-indicator-container';
 
         dayEvents.forEach(e => {
-            // Десктопное представление (плитка)
             const badge = document.createElement('div');
             badge.className = 'micro-event-badge';
             badge.innerText = `${e.event_time} ${e.title}`;
             cell.appendChild(badge);
 
-            // Добавляем точку для мобильного вида
             const dot = document.createElement('div');
             dot.className = 'mobile-event-dot';
             dotsContainer.appendChild(dot);
@@ -280,14 +281,13 @@ async function renderGoogleCalendar() {
         container.appendChild(cell);
     }
 
-    // Инициализируем мобильную хронологию на текущую или первую дату месяца
     if(window.innerWidth <= 768) {
-        const todayStr = `${pickerVal}-11`; // По умолчанию 11 число отчетного месяца
+        const todayStr = `${pickerVal}-11`; 
         selectMobileTimelineDate(todayStr);
     }
 }
 
-// Google Calendar мобильная лента хроники
+// Восстановление RSVP для резидентов и создания встреч для методолога в мобильной ленте
 function selectMobileTimelineDate(dateStr) {
     currentSelectedDateStr = dateStr;
     const parts = dateStr.split('-');
@@ -296,25 +296,51 @@ function selectMobileTimelineDate(dateStr) {
     const timelineList = document.getElementById('mobile-timeline-events-list');
     timelineList.innerHTML = '';
     
+    // Кнопка создания встречи для методолога
+    if (currentRole === 'speaker' || currentRole === 'admin') {
+        const createBtn = document.createElement('button');
+        createBtn.className = "btn-primary";
+        createBtn.style.cssText = "width:100%; margin-bottom:15px; font-size:0.85rem; padding:8px;";
+        createBtn.innerText = "+ Создать встречу на этот день";
+        createBtn.onclick = () => triggerCreateEvent("12:00");
+        timelineList.appendChild(createBtn);
+    }
+
     const dayEvents = cachedEvents.filter(e => e.event_date === dateStr);
     if(dayEvents.length === 0) {
-        timelineList.innerHTML = '<div class="timeline-empty">Событий не запланировано</div>';
+        timelineList.innerHTML += '<div class="timeline-empty">Событий не запланировано</div>';
         return;
     }
 
     dayEvents.forEach(e => {
         const item = document.createElement('div');
-        item.style.cssText = "padding: 12px 0; border-bottom: 1px solid #222;";
+        item.style.cssText = "padding: 14px 0; border-bottom: 1px solid #222;";
         item.innerHTML = `
             <div style="font-weight:600; color:var(--accent-gold); font-size:0.95rem;">${e.event_time} — ${e.title}</div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px;">📍 ${e.address}</div>
         `;
+
         if (currentRole === 'speaker' || currentRole === 'admin') {
             const mBtn = document.createElement('div');
-            mBtn.style.cssText = "font-size:0.75rem; color:var(--accent-gold); text-decoration:underline; margin-top:5px; cursor:pointer;";
+            mBtn.style.cssText = "font-size:0.75rem; color:var(--accent-gold); text-decoration:underline; margin-top:7px; cursor:pointer;";
             mBtn.innerText = `Редактировать событие / Участники (${e.going_count} чел.)`;
             mBtn.onclick = () => triggerEditEvent(e.id, e.title, e.event_time, e.address);
             item.appendChild(mBtn);
+        } else if (currentRole === 'resident') {
+            // Восстановление функционала RSVP на мобильных устройствах для резидента
+            const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
+            const statusText = userRsvp ? (userRsvp.status === 'going' ? 'Вы подтвердили участие' : 'Вы отказались') : 'Участие не подтверждено';
+            
+            const rsvpContainer = document.createElement('div');
+            rsvpContainer.style.cssText = "margin-top:10px; display:flex; flex-direction:column; gap:5px;";
+            rsvpContainer.innerHTML = `
+                <div style="font-size:0.8rem; color:var(--accent-gold); margin-bottom:4px;">${statusText}</div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-confirm-action" style="padding:6px 12px; font-size:0.8rem;" onclick="submitRsvp(${e.id}, 'going')">Точно буду</button>
+                    <button class="btn-cancel-action" style="padding:6px 12px; font-size:0.8rem;" onclick="submitRsvp(${e.id}, 'declined')">Не смогу</button>
+                </div>
+            `;
+            item.appendChild(rsvpContainer);
         }
         timelineList.appendChild(item);
     });
@@ -331,6 +357,7 @@ function closeDayModal(e) {
     if(!e || e.target.classList.contains('modal-overlay')) document.getElementById('day-modal').classList.add('hidden'); 
 }
 
+// Восстановление RSVP для резидентов и создание для методолога в десктопной модалке
 function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
     listContainer.innerHTML = '';
@@ -339,6 +366,7 @@ function renderDayEventsDetails() {
     const timeSlots = document.querySelectorAll('.time-slot');
     timeSlots.forEach(slot => {
         slot.classList.remove('has-event');
+        // Функция создания встреч методологом через сетку времени
         if (currentRole === 'speaker' || currentRole === 'admin') {
             slot.onclick = () => triggerCreateEvent(slot.getAttribute('data-hour'));
         }
@@ -365,9 +393,38 @@ function renderDayEventsDetails() {
         if (currentRole === 'speaker' || currentRole === 'admin') {
             card.style.cursor = 'pointer';
             card.onclick = () => triggerEditEvent(e.id, e.title, e.event_time, e.address);
+        } else if (currentRole === 'resident') {
+            // Восстановление RSVP на десктопе для резидента
+            const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
+            const statusHtml = userRsvp ? (userRsvp.status === 'going' ? '<span style="color:var(--status-green);">Вы идете</span>' : '<span style="color:var(--status-red);">Вы отказались</span>') : 'Статус не определен';
+            
+            const rsvpBlock = document.createElement('div');
+            rsvpBlock.style.cssText = "margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;";
+            rsvpBlock.innerHTML = `
+                <p class="event-meta-text" style="margin-bottom:8px;">Статус участия: <strong>${statusHtml}</strong></p>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-confirm-action" style="padding:8px 16px; font-size:0.85rem;" onclick="submitRsvp(${e.id}, 'going')">Точно буду</button>
+                    <button class="btn-cancel-action" style="padding:8px 16px; font-size:0.85rem;" onclick="submitRsvp(${e.id}, 'declined')">Не смогу</button>
+                </div>
+            `;
+            card.appendChild(rsvpBlock);
         }
         listContainer.appendChild(card);
     });
+}
+
+async function submitRsvp(eventId, status) {
+    const res = await fetch('/api/events/rsvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ event_id: eventId, status })
+    });
+    if(res.ok) {
+        alert('Ваш ответ сохранен!');
+        await renderGoogleCalendar();
+        if(window.innerWidth > 768) renderDayEventsDetails();
+        else selectMobileTimelineDate(currentSelectedDateStr);
+    }
 }
 
 function triggerCreateEvent(hourStr) {

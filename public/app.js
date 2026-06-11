@@ -44,27 +44,38 @@ function handleLogout() {
 }
 
 function showMainSystem() {
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('main-screen').classList.remove('hidden');
+    const authScreen = document.getElementById('auth-screen');
+    const mainScreen = document.getElementById('main-screen');
+    if (authScreen) authScreen.classList.add('hidden');
+    if (mainScreen) mainScreen.classList.remove('hidden');
     loadDashboardData();
 }
 
 async function loadDashboardData() {
-    const res = await fetch('/api/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
-    const data = await res.json();
-    currentRole = data.type;
-    
-    document.getElementById('user-display-name').innerText = data.type === 'resident' ? 'Резидент' : 'Методолог';
+    try {
+        const res = await fetch('/api/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        currentRole = data.type;
+        
+        const userDisplay = document.getElementById('user-display-name');
+        if (userDisplay) {
+            userDisplay.innerText = data.type === 'resident' ? 'Резидент' : 'Методолог';
+        }
 
-   
-        if (data.type === 'speaker') {
+        if (data.type === 'speaker' || data.type === 'admin') {
             currentRole = 'speaker';
             if (document.getElementById('role-badge')) {
                 document.getElementById('role-badge').innerText = 'Методолог (Админ)';
             }
+            
+            // Показываем панель методолога, скрываем резидента
+            const speakerView = document.getElementById('speaker-view');
+            const residentView = document.getElementById('resident-view');
+            if (speakerView) speakerView.classList.remove('hidden');
+            if (residentView) residentView.classList.add('hidden');
+
             renderSpeakerRegistry(data.residents || []);
             
-            // Безопасное переключение кнопки (защита от ошибки classList)
             const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('add-resident-btn');
             if (addResBtn) {
                 addResBtn.classList.remove('hidden');
@@ -74,6 +85,13 @@ async function loadDashboardData() {
             if (document.getElementById('role-badge')) {
                 document.getElementById('role-badge').innerText = 'Резидент';
             }
+
+            // Показываем панель резидента, скрываем методолога
+            const speakerView = document.getElementById('speaker-view');
+            const residentView = document.getElementById('resident-view');
+            if (speakerView) speakerView.classList.add('hidden');
+            if (residentView) residentView.classList.remove('hidden');
+
             renderResidentProfile(data.profile || {});
             renderResidentMetrics(data.metrics || []);
             
@@ -87,10 +105,45 @@ async function loadDashboardData() {
     }
 }
 
+// Функции безопасного рендеринга данных на UI
+function renderSpeakerRegistry(residents) {
+    const listContainer = document.getElementById('residents-list');
+    if (!listContainer) return;
+    if (residents.length === 0) {
+        listContainer.innerHTML = '<p style="color:var(--text-muted);">Резиденты не найдены</p>';
+        return;
+    }
+    listContainer.innerHTML = residents.map(r => `
+        <div class="resident-card" onclick="openSpeakerEditor(${r.id}, '${r.full_name}')" style="padding:15px; border-bottom:1px solid #222; cursor:pointer;">
+            <div style="font-weight:600; color:var(--accent-gold);">${r.full_name}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+                ${r.company} | ${r.niche} | ${r.turnover}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderResidentProfile(profile) {
+    if (document.getElementById('res-name')) document.getElementById('res-name').innerText = profile.full_name || '-';
+    if (document.getElementById('res-company')) document.getElementById('res-company').innerText = profile.company || '-';
+    if (document.getElementById('res-niche')) document.getElementById('res-niche').innerText = profile.niche || '-';
+    if (document.getElementById('res-turnover')) document.getElementById('res-turnover').innerText = profile.turnover || '-';
+}
+
+function renderResidentMetrics(metrics) {
+    renderResidentFocusView(metrics);
+    renderChart(metrics);
+}
+
 function renderResidentFocusView(metrics) {
     const recBlock = document.getElementById('recommendations-block');
+    if (!recBlock) return;
+    if (metrics.length === 0) {
+        recBlock.innerHTML = '<p style="color:var(--text-muted);">Рекомендации отсутствуют.</p>';
+        return;
+    }
     recBlock.innerHTML = metrics.map(m => `
-        <div class="log-segment-box">
+        <div class="log-segment-box" style="margin-bottom:15px; padding:10px; border-left:2px solid var(--accent-gold);">
             <strong>Период: ${m.date_period}</strong>
             ${m.summary_title ? `<p style="margin-top:5px; color:var(--accent-gold);">Встреча: ${m.summary_title} (${m.summary_date})</p>` : ''}
             <p style="margin-top:8px; font-size:0.9rem; color:#e0e0e0;">${m.recommendations || 'Рекомендации отсутствуют.'}</p>
@@ -98,13 +151,21 @@ function renderResidentFocusView(metrics) {
     `).join('');
 }
 
-function openAddResidentModal() { document.getElementById('add-resident-modal').classList.remove('hidden'); }
-function closeAddResidentModal() { document.getElementById('add-resident-modal').classList.add('hidden'); }
+function openAddResidentModal() { 
+    if (document.getElementById('add-resident-modal')) {
+        document.getElementById('add-resident-modal').classList.remove('hidden'); 
+    }
+}
+function closeAddResidentModal() { 
+    if (document.getElementById('add-resident-modal')) {
+        document.getElementById('add-resident-modal').classList.add('hidden'); 
+    }
+}
 
 async function submitNewResident() {
     const payload = {
         fullName: document.getElementById('add-res-name').value,
-        email: document.getElementById('add-res-email').value, // Передаем кастомный email из формы
+        email: document.getElementById('add-res-email').value,
         company: document.getElementById('add-res-company').value,
         niche: document.getElementById('add-res-niche').value,
         turnover: document.getElementById('add-res-turnover').value,
@@ -121,24 +182,33 @@ async function submitNewResident() {
         alert(`Резидент успешно добавлен! Доступ открыт для: ${payload.email}`);
         closeAddResidentModal();
         loadDashboardData();
+    } else {
+        const errData = await res.json();
+        alert(errData.error || 'Ошибка при создании');
     }
 }
 
 function openSessionResultsModal() { 
-    document.getElementById('session-results-modal').classList.remove('hidden'); 
-    switchModalTab('summary'); 
+    if (document.getElementById('session-results-modal')) {
+        document.getElementById('session-results-modal').classList.remove('hidden'); 
+        switchModalTab('summary'); 
+    }
 }
-function closeSessionResultsModal() { document.getElementById('session-results-modal').classList.add('hidden'); }
+function closeSessionResultsModal() { 
+    if (document.getElementById('session-results-modal')) {
+        document.getElementById('session-results-modal').classList.add('hidden'); 
+    }
+}
 
 function switchModalTab(tab) {
     activeModalTab = tab;
-    document.getElementById('modal-tab-summary').classList.remove('active');
-    document.getElementById('modal-tab-recommendations').classList.remove('active');
-    document.getElementById('modal-body-summary').classList.add('hidden');
-    document.getElementById('modal-body-recommendations').classList.add('hidden');
+    if (document.getElementById('modal-tab-summary')) document.getElementById('modal-tab-summary').classList.remove('active');
+    if (document.getElementById('modal-tab-recommendations')) document.getElementById('modal-tab-recommendations').classList.remove('active');
+    if (document.getElementById('modal-body-summary')) document.getElementById('modal-body-summary').classList.add('hidden');
+    if (document.getElementById('modal-body-recommendations')) document.getElementById('modal-body-recommendations').classList.add('hidden');
     
-    document.getElementById(`modal-tab-${tab}`).classList.add('active');
-    document.getElementById(`modal-body-${tab}`).classList.remove('hidden');
+    if (document.getElementById(`modal-tab-${tab}`)) document.getElementById(`modal-tab-${tab}`).classList.add('active');
+    if (document.getElementById(`modal-body-${tab}`)) document.getElementById(`modal-body-${tab}`).classList.remove('hidden');
 }
 
 async function submitSessionResults() {
@@ -166,19 +236,22 @@ async function submitSessionResults() {
     }
 }
 
-// Изменение порядка: Сначала группируются ВСЕ "Итоги встреч", а затем ВСЕ "Комментарии и рекомендации"
 async function openSpeakerEditor(residentId, name) {
     selectedResidentId = residentId;
-    document.getElementById('editor-block').classList.remove('hidden');
-    if(name) document.getElementById('edit-resident-title').innerText = `Управление резидентом: ${name}`;
+    if (document.getElementById('editor-block')) document.getElementById('editor-block').classList.remove('hidden');
+    if(name && document.getElementById('edit-resident-title')) {
+        document.getElementById('edit-resident-title').innerText = `Управление резидентом: ${name}`;
+    }
     
     const res = await fetch(`/api/resident/${residentId}`, { headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
     
     const logsContainer = document.getElementById('extended-view-logs');
+    if (!logsContainer) return;
+    
     logsContainer.innerHTML = `<h4>Первоначальный входной запрос:</h4><p style="color:var(--text-muted); margin-bottom:20px; font-size:0.95rem;">${data.profile.entry_request || 'Не указан'}</p>`;
     
-    if(data.metrics.length === 0) {
+    if(!data.metrics || data.metrics.length === 0) {
         logsContainer.innerHTML += `<p style="color:var(--text-muted); font-size:0.9rem;">Логи по встречам и рекомендациям пока отсутствуют.</p>`;
         return;
     }
@@ -189,7 +262,7 @@ async function openSpeakerEditor(residentId, name) {
     data.metrics.forEach(m => {
         if(m.summary_title) {
             summaryHtml += `
-                <div class="log-segment-box">
+                <div class="log-segment-box" style="margin-bottom:10px;">
                     <h5>📋 ${m.summary_title}</h5>
                     <p class="sub-meta-p">Дата проведения: ${m.summary_date} | Период: ${m.date_period}</p>
                     <p class="text-content-p"><strong>Тема:</strong> ${m.summary_topic || '-'}</p>
@@ -200,7 +273,7 @@ async function openSpeakerEditor(residentId, name) {
         }
         if(m.recs_title) {
             recommendationsHtml += `
-                <div class="log-segment-box" style="border-left: 3px solid var(--accent-gold);">
+                <div class="log-segment-box" style="border-left: 3px solid var(--accent-gold); margin-bottom:10px;">
                     <h5>🎯 Комментарии и рекомендации: ${m.recs_title}</h5>
                     <p class="sub-meta-p">Отчетный период: ${m.date_period}</p>
                     <p class="text-content-p">${m.recs_desc || '-'}</p>
@@ -213,7 +286,9 @@ async function openSpeakerEditor(residentId, name) {
 }
 
 async function renderGoogleCalendar() {
-    const pickerVal = document.getElementById('calendarMonthPicker').value;
+    const picker = document.getElementById('calendarMonthPicker');
+    if (!picker) return;
+    const pickerVal = picker.value;
     if (!pickerVal) return;
     const [year, month] = pickerVal.split('-').map(Number);
     
@@ -223,9 +298,12 @@ async function renderGoogleCalendar() {
     cachedRsvps = data.rsvps || [];
 
     const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-    document.getElementById('calendar-month-title').innerText = `${monthNames[month - 1]} ${year}`;
+    if (document.getElementById('calendar-month-title')) {
+        document.getElementById('calendar-month-title').innerText = `${monthNames[month - 1]} ${year}`;
+    }
 
     const container = document.getElementById('calendar-days-container');
+    if (!container) return;
     container.innerHTML = '';
 
     let firstDayIndex = new Date(year, month - 1, 1).getDay();
@@ -290,16 +368,17 @@ async function renderGoogleCalendar() {
     }
 }
 
-// Восстановление RSVP для резидентов и создания встреч для методолога в мобильной ленте
 function selectMobileTimelineDate(dateStr) {
     currentSelectedDateStr = dateStr;
     const parts = dateStr.split('-');
-    document.getElementById('mobile-timeline-date-title').innerText = `События: ${parts[2]}.${parts[1]}.${parts[0]}`;
+    if (document.getElementById('mobile-timeline-date-title')) {
+        document.getElementById('mobile-timeline-date-title').innerText = `События: ${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
     
     const timelineList = document.getElementById('mobile-timeline-events-list');
+    if (!timelineList) return;
     timelineList.innerHTML = '';
     
-    // Кнопка создания встречи для методолога
     if (currentRole === 'speaker' || currentRole === 'admin') {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -330,7 +409,6 @@ function selectMobileTimelineDate(dateStr) {
             mBtn.onclick = () => triggerEditEvent(e.id, e.title, e.event_time, e.address);
             item.appendChild(mBtn);
         } else if (currentRole === 'resident') {
-            // Восстановление функционала RSVP на мобильных устройствах для резидента
             const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
             const statusText = userRsvp ? (userRsvp.status === 'going' ? 'Вы подтвердили участие' : 'Вы отказались') : 'Участие не подтверждено';
             
@@ -351,18 +429,20 @@ function selectMobileTimelineDate(dateStr) {
 
 function openDayModal(dateStr) {
     currentSelectedDateStr = dateStr;
-    document.getElementById('day-modal').classList.remove('hidden');
-    document.getElementById('modal-day-title').innerText = `События на ${dateStr}`;
+    if (document.getElementById('day-modal')) document.getElementById('day-modal').classList.remove('hidden');
+    if (document.getElementById('modal-day-title')) document.getElementById('modal-day-title').innerText = `События на ${dateStr}`;
     renderDayEventsDetails();
 }
 
 function closeDayModal(e) { 
-    if(!e || e.target.classList.contains('modal-overlay')) document.getElementById('day-modal').classList.add('hidden'); 
+    if(!e || e.target.classList.contains('modal-overlay')) {
+        if (document.getElementById('day-modal')) document.getElementById('day-modal').classList.add('hidden');
+    }
 }
 
-// Восстановление RSVP для резидентов и создание для методолога в десктопной модалке
 function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
+    if (!listContainer) return;
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
@@ -380,7 +460,6 @@ function renderDayEventsDetails() {
         let actionButtonsHtml = '';
 
         if (currentRole === 'speaker' || currentRole === 'admin') {
-            // Кнопка редактирования для методолога
             actionButtonsHtml = `
                 <button class="btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-top:10px;" 
                     onclick="event.stopPropagation(); triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}')">
@@ -388,9 +467,7 @@ function renderDayEventsDetails() {
                 </button>
             `;
         } else if (currentRole === 'resident') {
-            // Проверяем текущий статус RSVP резидента
             const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
-            
             if (userRsvp) {
                 if (userRsvp.status === 'going') {
                     actionButtonsHtml = `<div style="color:var(--status-green); font-weight:600; margin-top:10px;">Вы записаны</div>`;
@@ -398,7 +475,6 @@ function renderDayEventsDetails() {
                     actionButtonsHtml = `<div style="color:var(--status-red); font-weight:600; margin-top:10px;">Вы отказались от участия</div>`;
                 }
             } else {
-                // Если выбора еще нет — показываем текст "Подтвердите участие" и новые кнопки
                 actionButtonsHtml = `
                     <div style="font-size:0.85rem; color:var(--accent-gold); margin-top:10px; margin-bottom:6px;">Статус: Подтвердите участие</div>
                     <div style="display:flex; gap:10px;">
@@ -409,27 +485,17 @@ function renderDayEventsDetails() {
             }
         }
 
-        // Счетчик участников внизу для администратора
         let adminCounterHtml = '';
-if (currentRole === 'speaker' || currentRole === 'admin') {
-    // Безопасно сохраняем индекс события вместо передачи сырого JSON в onclick
-    adminCounterHtml = `
-        <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
-            <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" 
-                  onclick="event.stopPropagation(); window.currentDetailedEventId = ${e.id}; openAttendeesModalFromCache();">
-                Участники (Подтвердили/Отклонили): ${e.going_count || 0} чел.
-            </span>
-        </div>
-    `;
-}
-
-        // Добавить прямо под функцией renderDayEventsDetails
-function openAttendeesModalFromCache() {
-    const foundEvent = cachedEvents.find(e => e.id === window.currentDetailedEventId);
-    if (foundEvent && typeof showAttendeesModal === 'function') {
-        showAttendeesModal(foundEvent.attendees || []);
-    }
-}
+        if (currentRole === 'speaker' || currentRole === 'admin') {
+            adminCounterHtml = `
+                <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
+                    <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" 
+                          onclick="event.stopPropagation(); window.currentDetailedEventId = ${e.id}; openAttendeesModalFromCache();">
+                        Участники (Подтвердили/Отклонили): ${e.going_count || 0} чел.
+                    </span>
+                </div>
+            `;
+        }
 
         card.innerHTML = `
             <h4>${e.title}</h4>
@@ -443,15 +509,18 @@ function openAttendeesModalFromCache() {
     });
 }
 
-// Обработчик нажатия кнопок с окнами подтверждения "Да/Отмена"
+function openAttendeesModalFromCache() {
+    const foundEvent = cachedEvents.find(e => e.id === window.currentDetailedEventId);
+    if (foundEvent) {
+        showAttendeesModal(foundEvent.attendees || []);
+    }
+}
+
 function handleResidentDecision(eventId, status) {
     let question = status === 'going' ? "Подтверждаете участие?" : "Вы точно хотите отказаться от участия?";
-    
     if (confirm(question)) {
-        // Если пользователь нажал "Да" — отправляем на бэкенд и блокируем изменение
         submitRsvp(eventId, status);
     }
-    // Если нажал "Отмена" — окно просто закроется, ничего не произойдет
 }
 
 async function submitRsvp(eventId, status) {
@@ -469,26 +538,28 @@ async function submitRsvp(eventId, status) {
 }
 
 function triggerCreateEvent(hourStr) {
-    document.getElementById('editor-modal-title').innerText = "Создать событие";
-    document.getElementById('edit-event-id').value = '';
-    document.getElementById('event-title-input').value = '';
-    document.getElementById('event-time-input').value = hourStr;
-    document.getElementById('event-address-input').value = '';
-    document.getElementById('btn-delete-event').style.display = 'none';
-    document.getElementById('event-editor-modal').classList.remove('hidden');
+    if (document.getElementById('editor-modal-title')) document.getElementById('editor-modal-title').innerText = "Создать событие";
+    if (document.getElementById('edit-event-id')) document.getElementById('edit-event-id').value = '';
+    if (document.getElementById('event-title-input')) document.getElementById('event-title-input').value = '';
+    if (document.getElementById('event-time-input')) document.getElementById('event-time-input').value = hourStr;
+    if (document.getElementById('event-address-input')) document.getElementById('event-address-input').value = '';
+    if (document.getElementById('btn-delete-event')) document.getElementById('btn-delete-event').style.display = 'none';
+    if (document.getElementById('event-editor-modal')) document.getElementById('event-editor-modal').classList.remove('hidden');
 }
 
 function triggerEditEvent(id, title, time, address) {
-    document.getElementById('editor-modal-title').innerText = "Редактировать событие";
-    document.getElementById('edit-event-id').value = id;
-    document.getElementById('event-title-input').value = title;
-    document.getElementById('event-time-input').value = time;
-    document.getElementById('event-address-input').value = address;
-    document.getElementById('btn-delete-event').style.display = 'block';
-    document.getElementById('event-editor-modal').classList.remove('hidden');
+    if (document.getElementById('editor-modal-title')) document.getElementById('editor-modal-title').innerText = "Редактировать событие";
+    if (document.getElementById('edit-event-id')) document.getElementById('edit-event-id').value = id;
+    if (document.getElementById('event-title-input')) document.getElementById('event-title-input').value = title;
+    if (document.getElementById('event-time-input')) document.getElementById('event-time-input').value = time;
+    if (document.getElementById('event-address-input')) document.getElementById('event-address-input').value = address;
+    if (document.getElementById('btn-delete-event')) document.getElementById('btn-delete-event').style.display = 'block';
+    if (document.getElementById('event-editor-modal')) document.getElementById('event-editor-modal').classList.remove('hidden');
 }
 
-function closeEditorModal() { document.getElementById('event-editor-modal').classList.add('hidden'); }
+function closeEditorModal() { 
+    if (document.getElementById('event-editor-modal')) document.getElementById('event-editor-modal').classList.add('hidden'); 
+}
 
 async function saveEventFromModal() {
     const id = document.getElementById('edit-event-id').value;
@@ -527,6 +598,7 @@ async function deleteEventFromModal() {
 function showAttendeesModal(attendees) {
     const modal = document.getElementById('attendees-list-modal');
     const container = document.getElementById('attendees-rows-container');
+    if (!modal || !container) return;
     container.innerHTML = '';
     
     if(!attendees || attendees.length === 0) {
@@ -534,7 +606,7 @@ function showAttendeesModal(attendees) {
     } else {
         attendees.forEach(a => {
             container.innerHTML += `
-                <div class="attendee-row">
+                <div class="attendee-row" style="display:flex; justify-content:space-between; padding:5px 0;">
                     <span>${a.fullName}</span>
                     <span class="badge-status-sub" style="color:${a.status === 'going' ? 'var(--status-green)' : 'var(--status-red)'}">
                         ${a.status === 'going' ? 'Точно будет' : 'Отказался'}
@@ -546,9 +618,15 @@ function showAttendeesModal(attendees) {
     modal.classList.remove('hidden');
 }
 
+function closeAttendeesModal() {
+    if (document.getElementById('attendees-list-modal')) {
+        document.getElementById('attendees-list-modal').classList.add('hidden');
+    }
+}
+
 function renderChart(metrics) {
     const canvas = document.getElementById('metricsChart');
-    if(!canvas) return;
+    if(!canvas || typeof Chart === 'undefined') return;
     const ctx = canvas.getContext('2d');
     if(myChart) myChart.destroy();
     myChart = new Chart(ctx, {
@@ -566,7 +644,6 @@ function renderChart(metrics) {
     });
 }
 
-// ПОЛНОСТЬЮ ЗАМЕНИТЕ ФУНКЦИЮ switchTab В САМОМ НИЗУ ФАЙЛА public/app.js:
 function switchTab(tab) {
     const dashboardContent = document.getElementById('content-dashboard');
     const calendarContent = document.getElementById('content-calendar');
@@ -584,7 +661,6 @@ function switchTab(tab) {
     if (currentContent) currentContent.classList.remove('hidden');
     if (currentTabLink) currentTabLink.classList.add('active');
 
-    // Находим кнопку добавления резидента (пробуем оба возможных ID из верстки)
     const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('add-resident-btn');
     const addEvtBtn = document.getElementById('calendar-add-event-btn');
 
@@ -602,20 +678,18 @@ function switchTab(tab) {
     }
 
     if (tab === 'calendar') {
-        if (typeof renderGoogleCalendar === 'function') renderGoogleCalendar();
-        if (typeof setupNotificationCheck === 'function') setupNotificationCheck();
+        renderGoogleCalendar();
+        setupNotificationCheck();
     }
 }
 
-// Запрос прав на системные уведомления при входе в календарь
 function setupNotificationCheck() {
     if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission();
     }
-    // Запуск проверки каждые 60 секунд
     if (!window.notificationIntervalId) {
         window.notificationIntervalId = setInterval(checkUpcomingEventsAndNotify, 60000);
-        checkUpcomingEventsAndNotify(); // И разово при запуске
+        checkUpcomingEventsAndNotify();
     }
 }
 
@@ -625,11 +699,9 @@ function checkUpcomingEventsAndNotify() {
     const now = new Date();
     
     cachedEvents.forEach(e => {
-        // Проверяем, идет ли резидент на встречу
         const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
         if (!userRsvp || userRsvp.status !== 'going') return;
 
-        // Парсим дату и время события (например: "2026-06-24" и "14:00")
         const [year, month, day] = e.event_date.split('-').map(Number);
         const [hours, minutes] = e.event_time.split(':').map(Number);
         const eventDateTime = new Date(year, month - 1, day, hours, minutes);
@@ -637,17 +709,14 @@ function checkUpcomingEventsAndNotify() {
         const timeDiffMs = eventDateTime - now;
         const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
 
-        // Создаем уникальные ключи для localStorage, чтобы не спамить каждую минуту
         const storageKey24h = `notified_24h_${e.id}`;
         const storageKey2h = `notified_2h_${e.id}`;
 
-        // 1. Проверка за 1 день (от 23 до 24 часов до мероприятия)
         if (timeDiffHours > 23 && timeDiffHours <= 24 && !localStorage.getItem(storageKey24h)) {
             sendBrowserNotification(`Напоминание за день`, `Завтра в ${e.event_time} состоится мероприятие: "${e.title}". Ждем вас!`);
             localStorage.setItem(storageKey24h, 'true');
         }
 
-        // 2. Проверка за 2 часа (от 1.9 до 2 часов до мероприятия)
         if (timeDiffHours > 1.9 && timeDiffHours <= 2 && !localStorage.getItem(storageKey2h)) {
             sendBrowserNotification(`Напоминание за 2 часа`, `Сегодня в ${e.event_time} начнётся: "${e.title}". Не опаздывайте!`);
             localStorage.setItem(storageKey2h, 'true');
@@ -659,7 +728,6 @@ function sendBrowserNotification(title, text) {
     if ("Notification" in window && Notification.permission === "granted") {
         new Notification(title, { body: text, icon: '/favicon.svg' });
     } else {
-        // Запасной вариант, если уведомления запрещены в браузере
         alert(`🔔 ${title}\n\n${text}`);
     }
 }

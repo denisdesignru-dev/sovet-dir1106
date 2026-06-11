@@ -36,7 +36,6 @@ let metricsData = [
         business_score: 4,
         team_score: 7,
         recommendations: 'Сформировать и разделить стратегические и операционные риски поставщиков.',
-        // Детализированные вкладки итогов
         summary_title: 'Совет Директоров Май',
         summary_date: '2026-05-24',
         summary_topic: 'Разбор реальных управленческих решений: где скрыт перегруз по затратам.',
@@ -57,7 +56,7 @@ let rsvps = [
     { event_id: 3, resident_id: 1, status: 'going', fullName: 'Белянин Максим Николаевич' }
 ];
 
-// Middleware
+// Middleware авторизации
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -98,9 +97,9 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
     }
 });
 
-// Добавление нового резидента методологом
+// Добавление нового резидента методологом (Исправленная версия под роли)
 app.post('/api/residents/create', authenticateToken, (req, res) => {
-    if (req.user.role !== 'speaker' && req.user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Нет доступа' });
     }
     const { fullName, email, company, niche, turnover, entryRequest } = req.body;
@@ -109,26 +108,22 @@ app.post('/api/residents/create', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Email обязателен к заполнению' });
     }
 
-    // Проверяем, нет ли уже пользователя с такой почтой
-    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const existingUser = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
     if (existingUser) {
         return res.status(400).json({ error: 'Пользователь с таким Email уже существует' });
     }
 
-    // Создаем новый ID
     const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
     const passwordHash = bcrypt.hashSync('123456', 10);
 
-    // 1. Сохраняем пользователя в массив авторизации users
     users.push({
         id: nextId,
-        email: email.toLowerCase(),
+        email: email.toLowerCase().trim(),
         passwordHash: passwordHash,
         role: 'resident',
         fullName: fullName
     });
 
-    // 2. Сохраняем данные его профиля в объект profiles
     profiles[nextId] = {
         full_name: fullName,
         company: company || '-',
@@ -166,7 +161,7 @@ app.post('/api/metrics/extended-update', authenticateToken, (req, res) => {
     item.summary_requests = summary_requests;
     item.recs_title = recs_title;
     item.recs_desc = recs_desc;
-    item.recommendations = `${recs_title}: ${recs_desc}`; // Для обратной совместимости вывода в ЛК
+    item.recommendations = `${recs_title}: ${recs_desc}`;
 
     res.json({ success: true });
 });
@@ -188,7 +183,6 @@ app.get('/api/events/month/:yearMonth', authenticateToken, (req, res) => {
     const target = req.params.yearMonth;
     const monthlyEvents = events.filter(e => e.event_date.startsWith(target));
     
-    // Для каждого события собираем развернутые списки подтвердивших и отказавшихся
     const enrichedEvents = monthlyEvents.map(e => {
         const eventRsvps = rsvps.filter(r => r.event_id === e.id);
         return {
@@ -237,7 +231,3 @@ app.delete('/api/events/:id', authenticateToken, (req, res) => {
 
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.listen(PORT, () => { console.log(`[OK] Server running on port ${PORT}`); });
-
-// Метод сохранения расширенных метрик /api/metrics/extended-update на бэкенде 
-// гарантирует запись полей summary_* и recs_*, которые теперь полностью 
-// отображаются на фронтенде в функции openSpeakerEditor.

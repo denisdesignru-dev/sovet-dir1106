@@ -56,31 +56,34 @@ async function loadDashboardData() {
     
     document.getElementById('user-display-name').innerText = data.type === 'resident' ? 'Резидент' : 'Методолог';
 
-    if (data.type === 'resident') {
-        document.getElementById('resident-view').classList.remove('hidden');
-        document.getElementById('speaker-view').classList.add('hidden');
-        document.getElementById('global-add-resident-btn').classList.add('hidden');
-        
-        document.getElementById('res-name').innerText = data.profile.full_name || '-';
-        document.getElementById('res-company').innerText = data.profile.company || '-';
-        document.getElementById('res-niche').innerText = data.profile.niche || '-';
-        document.getElementById('res-turnover').innerText = data.profile.turnover || '-';
-        
-        renderResidentFocusView(data.metrics);
-        renderChart(data.metrics);
-    } else {
-        document.getElementById('speaker-view').classList.remove('hidden');
-        document.getElementById('resident-view').classList.add('hidden');
-        document.getElementById('global-add-resident-btn').classList.remove('hidden');
-        
-        // Исправление: Выводим Логин (Email) после ФИО резидента в реестре методолога
-        const listContainer = document.getElementById('residents-list');
-        listContainer.innerHTML = data.residents.map(r => `
-            <div class="resident-item" onclick="openSpeakerEditor(${r.id}, '${r.full_name}')">
-                <h4>${r.full_name} <span style="font-size:0.85rem; color:var(--accent-gold); font-weight:400;">(${r.email})</span></h4>
-                <p style="color:var(--text-muted); font-size:0.9rem; margin-top:5px;">${r.company} — ${r.niche}</p>
-            </div>
-        `).join('');
+   
+        if (data.type === 'speaker') {
+            currentRole = 'speaker';
+            if (document.getElementById('role-badge')) {
+                document.getElementById('role-badge').innerText = 'Методолог (Админ)';
+            }
+            renderSpeakerRegistry(data.residents || []);
+            
+            // Безопасное переключение кнопки (защита от ошибки classList)
+            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('add-resident-btn');
+            if (addResBtn) {
+                addResBtn.classList.remove('hidden');
+            }
+        } else {
+            currentRole = 'resident';
+            if (document.getElementById('role-badge')) {
+                document.getElementById('role-badge').innerText = 'Резидент';
+            }
+            renderResidentProfile(data.profile || {});
+            renderResidentMetrics(data.metrics || []);
+            
+            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('add-resident-btn');
+            if (addResBtn) {
+                addResBtn.classList.add('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки дашборда:', err);
     }
 }
 
@@ -563,32 +566,44 @@ function renderChart(metrics) {
     });
 }
 
+// ПОЛНОСТЬЮ ЗАМЕНИТЕ ФУНКЦИЮ switchTab В САМОМ НИЗУ ФАЙЛА public/app.js:
 function switchTab(tab) {
-    document.getElementById('content-dashboard').classList.add('hidden');
-    document.getElementById('content-calendar').classList.add('hidden');
-    document.getElementById('tab-dashboard').classList.remove('active');
-    document.getElementById('tab-calendar').classList.remove('active');
-    
-    document.getElementById(`content-${tab}`).classList.remove('hidden');
-    document.getElementById(`tab-${tab}`).classList.add('active');
+    const dashboardContent = document.getElementById('content-dashboard');
+    const calendarContent = document.getElementById('content-calendar');
+    const tabDashboard = document.getElementById('tab-dashboard');
+    const tabCalendar = document.getElementById('tab-calendar');
 
-    // Управление отображением плавающих кнопок методолога
+    if (dashboardContent) dashboardContent.classList.add('hidden');
+    if (calendarContent) calendarContent.classList.add('hidden');
+    if (tabDashboard) tabDashboard.classList.remove('active');
+    if (tabCalendar) tabCalendar.classList.remove('active');
+    
+    const currentContent = document.getElementById(`content-${tab}`);
+    const currentTabLink = document.getElementById(`tab-${tab}`);
+    
+    if (currentContent) currentContent.classList.remove('hidden');
+    if (currentTabLink) currentTabLink.classList.add('active');
+
+    // Находим кнопку добавления резидента (пробуем оба возможных ID из верстки)
+    const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('add-resident-btn');
+    const addEvtBtn = document.getElementById('calendar-add-event-btn');
+
     if (currentRole === 'speaker' || currentRole === 'admin') {
         if (tab === 'dashboard') {
-            document.getElementById('global-add-resident-btn').classList.remove('hidden');
-            document.getElementById('calendar-add-event-btn').classList.add('hidden');
+            if (addResBtn) addResBtn.classList.remove('hidden');
+            if (addEvtBtn) addEvtBtn.classList.add('hidden');
         } else {
-            document.getElementById('global-add-resident-btn').classList.add('hidden');
-            document.getElementById('calendar-add-event-btn').classList.remove('hidden');
+            if (addResBtn) addResBtn.classList.add('hidden');
+            if (addEvtBtn) addEvtBtn.classList.remove('hidden');
         }
     } else {
-        document.getElementById('global-add-resident-btn').classList.add('hidden');
-        document.getElementById('calendar-add-event-btn').classList.add('hidden');
+        if (addResBtn) addResBtn.classList.add('hidden');
+        if (addEvtBtn) addEvtBtn.classList.add('hidden');
     }
 
     if (tab === 'calendar') {
-        renderGoogleCalendar();
-        setupNotificationCheck(); // Включаем таймер проверки уведомлений
+        if (typeof renderGoogleCalendar === 'function') renderGoogleCalendar();
+        if (typeof setupNotificationCheck === 'function') setupNotificationCheck();
     }
 }
 

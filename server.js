@@ -86,6 +86,7 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
     if (req.user.role === 'resident') {
         res.json({ type: 'resident', profile: profiles[req.user.id] || {}, metrics: metricsData.filter(m => m.resident_id === req.user.id) });
     } else {
+        // Заменили type со 'speaker' на 'admin'
         const registry = users.filter(u => u.role === 'resident').map(u => ({
             id: u.id,
             full_name: u.fullName,
@@ -93,18 +94,15 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
             niche: profiles[u.id]?.niche || '-',
             turnover: profiles[u.id]?.turnover || '-'
         }));
-        res.json({ type: 'speaker', residents: registry });
+        res.json({ type: 'admin', residents: registry });
     }
 });
 
-// Добавление нового резидента методологом (Исправленная версия под роли)
-// Добавление нового резидента методологом (Исправленная версия)
+// Добавление нового резидента администратором
 app.post('/api/residents/create', authenticateToken, (req, res) => {
-    // Разрешаем доступ и главному админу, и методологу (speaker)
-    if (req.user.role !== 'admin' && req.user.role !== 'speaker') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Нет доступа' });
     }
-    
     const { fullName, email, password, company, niche, turnover, entryRequest } = req.body;
     
     if (!email) {
@@ -117,8 +115,6 @@ app.post('/api/residents/create', authenticateToken, (req, res) => {
     }
 
     const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
-    
-    // Если фронтенд передал пароль — хешируем его, если нет — берем дефолтный '123456'
     const passwordToHash = (password && password.trim() !== '') ? password.trim() : '123456';
     const passwordHash = bcrypt.hashSync(passwordToHash, 10);
 
@@ -149,9 +145,9 @@ app.get('/api/resident/:id', authenticateToken, (req, res) => {
     });
 });
 
-// Сохранение комплексных итогов встречи и рекомендаций методологом
+// Сохранение комплексных итогов встречи и рекомендаций
 app.post('/api/metrics/extended-update', authenticateToken, (req, res) => {
-    if (req.user.role === 'resident') return res.status(403).json({ error: 'Запрещено.' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Запрещено.' });
     const { resident_id, date_period, summary_title, summary_date, summary_topic, summary_content, summary_requests, recs_title, recs_desc } = req.body;
     
     let item = metricsData.find(m => m.resident_id === parseInt(resident_id) && m.date_period === date_period);
@@ -184,7 +180,7 @@ app.post('/api/metrics', authenticateToken, (req, res) => {
     res.json({ message: 'Срезы успешно сохранены.' });
 });
 
-// Календарь событий и RSVP списки участников
+// Календарь событий и RSVP
 app.get('/api/events/month/:yearMonth', authenticateToken, (req, res) => {
     const target = req.params.yearMonth;
     const monthlyEvents = events.filter(e => e.event_date.startsWith(target));
@@ -212,7 +208,7 @@ app.post('/api/events/rsvp', authenticateToken, (req, res) => {
 });
 
 app.post('/api/events/create', authenticateToken, (req, res) => {
-    if (req.user.role === 'resident') return res.status(403).json({ error: 'Запрещено.' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Запрещено.' });
     const { title, event_date, event_time, address } = req.body;
     const newEvent = { id: Date.now(), title, event_date, event_time, address };
     events.push(newEvent);
@@ -220,7 +216,7 @@ app.post('/api/events/create', authenticateToken, (req, res) => {
 });
 
 app.put('/api/events/:id', authenticateToken, (req, res) => {
-    if (req.user.role === 'resident') return res.status(403).json({ error: 'Запрещено.' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Запрещено.' });
     const item = events.find(e => e.id === parseInt(req.params.id));
     if (item) {
         Object.assign(item, req.body);
@@ -230,7 +226,7 @@ app.put('/api/events/:id', authenticateToken, (req, res) => {
 });
 
 app.delete('/api/events/:id', authenticateToken, (req, res) => {
-    if (req.user.role === 'resident') return res.status(403).json({ error: 'Запрещено.' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Запрещено.' });
     events = events.filter(e => e.id !== parseInt(req.params.id));
     res.json({ success: true });
 });

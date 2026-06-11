@@ -66,30 +66,32 @@ async function loadDashboardData() {
         document.getElementById('res-niche').innerText = data.profile.niche || '-';
         document.getElementById('res-turnover').innerText = data.profile.turnover || '-';
         
-        const recBlock = document.getElementById('recommendations-block');
-        recBlock.innerHTML = data.metrics.map(m => `
-            <div style="background:#1a1a1a; padding:15px; border-radius:6px; margin-bottom:10px; border:1px solid #222;">
-                <strong>Период: ${m.date_period}</strong>
-                ${m.summary_title ? `<p style="margin-top:5px; color:#b59473;">Встреча: ${m.summary_title} (${m.summary_date})</p>` : ''}
-                <p style="margin-top:8px; font-size:0.9rem; color:#e0e0e0;">${m.recommendations || 'Рекомендации отсутствуют.'}</p>
-            </div>
-        `).join('');
+        renderResidentFocusView(data.metrics);
         renderChart(data.metrics);
     } else {
         document.getElementById('speaker-view').classList.remove('hidden');
         document.getElementById('resident-view').classList.add('hidden');
-        
-        // Показываем круглый плюс добавления резидентов на Панели Управления
         document.getElementById('global-add-resident-btn').classList.remove('hidden');
         
         const listContainer = document.getElementById('residents-list');
         listContainer.innerHTML = data.residents.map(r => `
             <div class="resident-item" onclick="openSpeakerEditor(${r.id}, '${r.full_name}')">
                 <h4>${r.full_name}</h4>
-                <p>${r.company} — ${r.niche}</p>
+                <p style="color:var(--text-muted); font-size:0.9rem; margin-top:5px;">${r.company} — ${r.niche}</p>
             </div>
         `).join('');
     }
+}
+
+function renderResidentFocusView(metrics) {
+    const recBlock = document.getElementById('recommendations-block');
+    recBlock.innerHTML = metrics.map(m => `
+        <div class="log-segment-box">
+            <strong>Период: ${m.date_period}</strong>
+            ${m.summary_title ? `<p style="margin-top:5px; color:var(--accent-gold);">Встреча: ${m.summary_title} (${m.summary_date})</p>` : ''}
+            <p style="margin-top:8px; font-size:0.9rem; color:#e0e0e0;">${m.recommendations || 'Рекомендации отсутствуют.'}</p>
+        </div>
+    `).join('');
 }
 
 function openAddResidentModal() { document.getElementById('add-resident-modal').classList.remove('hidden'); }
@@ -110,13 +112,16 @@ async function submitNewResident() {
     });
     if (res.ok) {
         const data = await res.json();
-        alert(`Резидент успешно добавлен! Создан аккаунт: ${data.email}`);
+        alert(`Резидент успешно добавлен! Сгенерированный логин: ${data.email}`);
         closeAddResidentModal();
         loadDashboardData();
     }
 }
 
-function openSessionResultsModal() { document.getElementById('session-results-modal').classList.remove('hidden'); switchModalTab('summary'); }
+function openSessionResultsModal() { 
+    document.getElementById('session-results-modal').classList.remove('hidden'); 
+    switchModalTab('summary'); 
+}
 function closeSessionResultsModal() { document.getElementById('session-results-modal').classList.add('hidden'); }
 
 function switchModalTab(tab) {
@@ -149,39 +154,56 @@ async function submitSessionResults() {
         body: JSON.stringify(payload)
     });
     if(res.ok) {
-        alert('Итоги встречи успешно зафиксированы.');
+        alert('Данные сохранены.');
         closeSessionResultsModal();
         openSpeakerEditor(selectedResidentId, "");
     }
 }
 
+// Изменено: Методолог теперь видит ВСЕ блоки («Итоги встречи» + «Комментарии и рекомендации»)
 async function openSpeakerEditor(residentId, name) {
     selectedResidentId = residentId;
     document.getElementById('editor-block').classList.remove('hidden');
-    if(name) document.getElementById('edit-resident-title').innerText = `Анализ и комментарии: ${name}`;
+    if(name) document.getElementById('edit-resident-title').innerText = `Управление резидентом: ${name}`;
     
     const res = await fetch(`/api/resident/${residentId}`, { headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
     
     const logsContainer = document.getElementById('extended-view-logs');
-    logsContainer.innerHTML = `<h4>Входной запрос:</h4><p style="color:#82807b; margin-bottom:15px;">${data.profile.entry_request || 'Не указан'}</p>`;
+    logsContainer.innerHTML = `<h4>Первоначальный входной запрос:</h4><p style="color:var(--text-muted); margin-bottom:20px; font-size:0.95rem;">${data.profile.entry_request || 'Не указан'}</p>`;
     
+    if(data.metrics.length === 0 || !data.metrics.some(m => m.summary_title || m.recs_title)) {
+        logsContainer.innerHTML += `<p style="color:var(--text-muted); font-size:0.9rem;">Логи по встречам и рекомендациям пока отсутствуют.</p>`;
+        return;
+    }
+
     data.metrics.forEach(m => {
+        // Блок 1: Итоги встречи (если заполнены)
         if(m.summary_title) {
             logsContainer.innerHTML += `
-                <div style="background:#1a1a1a; padding:15px; border-radius:6px; margin-top:10px; border:1px solid #222;">
-                    <span style="color:var(--accent-gold); font-size:0.8rem;">${m.date_period}</span>
-                    <h5 style="margin: 5px 0; font-size:1rem;">${m.summary_title} (${m.summary_date})</h5>
-                    <p style="font-size:0.85rem; color:#ccc;"><strong>Тема:</strong> ${m.summary_topic}</p>
-                    <p style="font-size:0.85rem; color:#ccc;"><strong>Содержание:</strong> ${m.summary_content}</p>
-                    <p style="font-size:0.85rem; color:#ccc;"><strong>Запросы:</strong> ${m.summary_requests}</p>
-                    <p style="font-size:0.85rem; color:var(--accent-gold); margin-top:5px;"><strong>${m.recs_title}:</strong> ${m.recs_desc}</p>
+                <div class="log-segment-box">
+                    <h5>📋 ${m.summary_title}</h5>
+                    <p class="sub-meta-p">Дата проведения: ${m.summary_date} | Период: ${m.date_period}</p>
+                    <p class="text-content-p"><strong>Тема:</strong> ${m.summary_topic || '-'}</p>
+                    <p class="text-content-p"><strong>Содержание:</strong> ${m.summary_content || '-'}</p>
+                    <p class="text-content-p"><strong>Запросы:</strong> ${m.summary_requests || '-'}</p>
+                </div>
+            `;
+        }
+        // Блок 2: Комментарии и рекомендации (если заполнены)
+        if(m.recs_title) {
+            logsContainer.innerHTML += `
+                <div class="log-segment-box" style="border-left: 3px solid var(--accent-gold);">
+                    <h5>🎯 Комментарии и рекомендации: ${m.recs_title}</h5>
+                    <p class="sub-meta-p">Отчетный период: ${m.date_period}</p>
+                    <p class="text-content-p">${m.recs_desc || '-'}</p>
                 </div>
             `;
         }
     });
 }
 
+// Календарь с Google Calendar логикой для узких дисплеев
 async function renderGoogleCalendar() {
     const pickerVal = document.getElementById('calendarMonthPicker').value;
     if (!pickerVal) return;
@@ -212,55 +234,90 @@ async function renderGoogleCalendar() {
         const dayStr = String(day).padStart(2, '0');
         const fullDateStr = `${pickerVal}-${dayStr}`;
         
+        // Клик по ячейке: на десктопе открывает модалку, на мобильном переключает нижнюю ленту
         cell.onclick = (e) => {
-            if(!e.target.classList.contains('counter-badge-clickable')) openDayModal(fullDateStr);
+            if(!e.target.classList.contains('counter-badge-clickable')) {
+                if(window.innerWidth <= 768) {
+                    selectMobileTimelineDate(fullDateStr);
+                } else {
+                    openDayModal(fullDateStr);
+                }
+            }
         };
 
         cell.innerHTML = `<span class="cell-day-number">${day}</span>`;
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
         
+        // Контейнер точек для адаптива
+        const dotsContainer = document.createElement('div');
+        dotsContainer.className = 'mobile-dots-indicator-container';
+
         dayEvents.forEach(e => {
+            // Десктопное представление (плитка)
             const badge = document.createElement('div');
             badge.className = 'micro-event-badge';
             badge.innerText = `${e.event_time} ${e.title}`;
             cell.appendChild(badge);
 
-            // Если зашел методолог — выводим кликабельный счетчик участников
+            // Добавляем точку для мобильного вида
+            const dot = document.createElement('div');
+            dot.className = 'mobile-event-dot';
+            dotsContainer.appendChild(dot);
+
             if (currentRole === 'speaker' || currentRole === 'admin') {
                 const countLink = document.createElement('span');
                 countLink.className = 'counter-badge-clickable';
-                countLink.innerText = `Записано: ${e.going_count} чел.`;
+                countLink.innerText = `Записано: ${e.going_count}`;
                 countLink.onclick = (event) => {
-                    event.stopPropagation(); // предотвращаем открытие окна дня
+                    event.stopPropagation();
                     showAttendeesModal(e.attendees);
                 };
                 cell.appendChild(countLink);
             }
         });
+
+        cell.appendChild(dotsContainer);
         container.appendChild(cell);
+    }
+
+    // Инициализируем мобильную хронологию на текущую или первую дату месяца
+    if(window.innerWidth <= 768) {
+        const todayStr = `${pickerVal}-11`; // По умолчанию 11 число отчетного месяца
+        selectMobileTimelineDate(todayStr);
     }
 }
 
-function showAttendeesModal(attendees) {
-    const modal = document.getElementById('attendees-list-modal');
-    const container = document.getElementById('attendees-rows-container');
-    container.innerHTML = '';
+// Google Calendar мобильная лента хроники
+function selectMobileTimelineDate(dateStr) {
+    currentSelectedDateStr = dateStr;
+    const parts = dateStr.split('-');
+    document.getElementById('mobile-timeline-date-title').innerText = `События: ${parts[2]}.${parts[1]}.${parts[0]}`;
     
-    if(!attendees || attendees.length === 0) {
-        container.innerHTML = '<p style="color:#82807b; text-align:center;">Ни один участник ещё не сделал выбор.</p>';
-    } else {
-        attendees.forEach(a => {
-            container.innerHTML += `
-                <div class="attendee-row">
-                    <span>${a.fullName}</span>
-                    <span class="badge-status-sub" style="color:${a.status === 'going' ? 'var(--status-green)' : 'var(--status-red)'}">
-                        ${a.status === 'going' ? 'Точно будет' : 'Отказался'}
-                    </span>
-                </div>
-            `;
-        });
+    const timelineList = document.getElementById('mobile-timeline-events-list');
+    timelineList.innerHTML = '';
+    
+    const dayEvents = cachedEvents.filter(e => e.event_date === dateStr);
+    if(dayEvents.length === 0) {
+        timelineList.innerHTML = '<div class="timeline-empty">Событий не запланировано</div>';
+        return;
     }
-    modal.classList.remove('hidden');
+
+    dayEvents.forEach(e => {
+        const item = document.createElement('div');
+        item.style.cssText = "padding: 12px 0; border-bottom: 1px solid #222;";
+        item.innerHTML = `
+            <div style="font-weight:600; color:var(--accent-gold); font-size:0.95rem;">${e.event_time} — ${e.title}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px;">📍 ${e.address}</div>
+        `;
+        if (currentRole === 'speaker' || currentRole === 'admin') {
+            const mBtn = document.createElement('div');
+            mBtn.style.cssText = "font-size:0.75rem; color:var(--accent-gold); text-decoration:underline; margin-top:5px; cursor:pointer;";
+            mBtn.innerText = `Редактировать событие / Участники (${e.going_count} чел.)`;
+            mBtn.onclick = () => triggerEditEvent(e.id, e.title, e.event_time, e.address);
+            item.appendChild(mBtn);
+        }
+        timelineList.appendChild(item);
+    });
 }
 
 function openDayModal(dateStr) {
@@ -270,7 +327,9 @@ function openDayModal(dateStr) {
     renderDayEventsDetails();
 }
 
-function closeDayModal(e) { if(!e || e.target.classList.contains('modal-overlay')) document.getElementById('day-modal').classList.add('hidden'); }
+function closeDayModal(e) { 
+    if(!e || e.target.classList.contains('modal-overlay')) document.getElementById('day-modal').classList.add('hidden'); 
+}
 
 function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
@@ -347,18 +406,52 @@ async function saveEventFromModal() {
         method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body)
     });
-    if(res.ok) { closeEditorModal(); await renderGoogleCalendar(); renderDayEventsDetails(); }
+    if(res.ok) { 
+        closeEditorModal(); 
+        await renderGoogleCalendar(); 
+        if(window.innerWidth > 768) renderDayEventsDetails(); 
+        else selectMobileTimelineDate(currentSelectedDateStr);
+    }
 }
 
 async function deleteEventFromModal() {
     const id = document.getElementById('edit-event-id').value;
     if(!id) return;
     const res = await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-    if(res.ok) { closeEditorModal(); await renderGoogleCalendar(); renderDayEventsDetails(); }
+    if(res.ok) { 
+        closeEditorModal(); 
+        await renderGoogleCalendar(); 
+        if(window.innerWidth > 768) renderDayEventsDetails(); 
+        else selectMobileTimelineDate(currentSelectedDateStr);
+    }
+}
+
+function showAttendeesModal(attendees) {
+    const modal = document.getElementById('attendees-list-modal');
+    const container = document.getElementById('attendees-rows-container');
+    container.innerHTML = '';
+    
+    if(!attendees || attendees.length === 0) {
+        container.innerHTML = '<p style="color:#82807b; text-align:center;">Ни один участник ещё не сделал выбор.</p>';
+    } else {
+        attendees.forEach(a => {
+            container.innerHTML += `
+                <div class="attendee-row">
+                    <span>${a.fullName}</span>
+                    <span class="badge-status-sub" style="color:${a.status === 'going' ? 'var(--status-green)' : 'var(--status-red)'}">
+                        ${a.status === 'going' ? 'Точно будет' : 'Отказался'}
+                    </span>
+                </div>
+            `;
+        });
+    }
+    modal.classList.remove('hidden');
 }
 
 function renderChart(metrics) {
-    const ctx = document.getElementById('metricsChart').getContext('2d');
+    const canvas = document.getElementById('metricsChart');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
     if(myChart) myChart.destroy();
     myChart = new Chart(ctx, {
         type: 'line',

@@ -14,7 +14,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 let users = [
     { id: 1, email: 'белянин@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'resident', fullName: 'Белянин Максим Николаевич' },
     { id: 2, email: 'admin@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'admin', fullName: 'Главный Методолог' },
-    { id: 3, email: 'speaker@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'speaker', fullName: 'Спикер Клуба' }
+    { id: 3, email: 'speaker@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'speaker', fullName: 'Спикер Клуба' },
+    
+    // ➕ ДОБАВЬ СВОЙ РЕАЛЬНЫЙ EMAIL СЮДА:
+    { id: 4, email: 'den2111067814@gmail.com', passwordHash: bcrypt.hashSync('123456', 10), role: 'admin', fullName: 'Денис Стариков' }
 ];
 
 let profiles = {

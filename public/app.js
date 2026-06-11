@@ -215,9 +215,12 @@ function closeAddResidentModal() {
 }
 
 async function submitNewResident() {
+    const emailVal = document.getElementById('add-res-email').value;
+    
     const payload = {
         fullName: document.getElementById('add-res-name').value,
-        email: document.getElementById('add-res-email').value,
+        email: emailVal,
+        password: emailVal, // ВАЖНО: Отправляем email в качестве временного пароля для первого входа!
         company: document.getElementById('add-res-company').value,
         niche: document.getElementById('add-res-niche').value,
         turnover: document.getElementById('add-res-turnover').value,
@@ -231,8 +234,12 @@ async function submitNewResident() {
         body: JSON.stringify(payload)
     });
     if (res.ok) {
+        alert(`Резидент успешно создан! Логин: ${emailVal}, Пароль по умолчанию: ${emailVal}`);
         closeAddResidentModal();
         loadDashboardData();
+    } else {
+        const errData = await res.json();
+        alert("Ошибка создания: " + (errData.error || errData.message));
     }
 }
 
@@ -453,8 +460,21 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
+    // --- ДОБАВЛЕНИЕ: Кнопка создания события на ПК для методолога/админа ---
+    if (currentRole === 'speaker' || currentRole === 'admin') {
+        const createBtnPC = document.createElement('button');
+        createBtnPC.className = "btn-primary";
+        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px;";
+        createBtnPC.innerText = "➕ Добавить событие в этот день";
+        createBtnPC.onclick = () => {
+            // Вызываем вашу штатную функцию открытия редактора, передавая дефолтное время
+            triggerCreateEvent("12:00"); 
+        };
+        listContainer.appendChild(createBtnPC);
+    }
+
     if (dayEvents.length === 0) {
-        listContainer.innerHTML = `<p style="padding:20px; text-align:center; color: var(--text-muted);">Событий не запланировано.</p>`;
+        listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted);">Событий не запланировано.</p>`;
         return;
     }
 
@@ -554,6 +574,9 @@ async function submitRsvp(eventId, status, isMobile) {
 }
 
 function triggerCreateEvent(hourStr) {
+    const editorModal = document.getElementById('event-editor-modal');
+    if (!editorModal) return;
+
     document.getElementById('editor-modal-title').innerText = "Создать событие";
     document.getElementById('edit-event-id').value = '';
     document.getElementById('event-title-input').value = '';
@@ -561,7 +584,10 @@ function triggerCreateEvent(hourStr) {
     document.getElementById('event-address-input').value = '';
     document.getElementById('event-date-input').value = currentSelectedDateStr;
     document.getElementById('btn-delete-event').style.display = 'none';
-    document.getElementById('event-editor-modal').classList.remove('hidden');
+    
+    // ПРИНУДИТЕЛЬНО: Вытаскиваем модалку на передний план для мобилок
+    editorModal.style.zIndex = '4000'; 
+    editorModal.classList.remove('hidden');
 }
 
 function triggerEditEvent(id, title, time, address, dateStr) {

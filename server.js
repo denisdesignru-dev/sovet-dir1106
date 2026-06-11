@@ -10,7 +10,7 @@ const JWT_SECRET = 'sovet_directors_ultra_secret_key_2026';
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- ПОЛНАЯ IN-MEMORY БАЗА ДАННЫХ ---
+// --- РЕАЛЬНАЯ IN-MEMORY БАЗА ДАННЫХ С ТВОИМ АККАУНТОМ ---
 let users = [
     { id: 1, email: 'белянин@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'resident', fullName: 'Белянин Максим Николаевич' },
     { id: 2, email: 'admin@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'admin', fullName: 'Главный Методолог' },
@@ -58,7 +58,7 @@ let rsvps = [
     { event_id: 3, resident_id: 1, status: 'going', fullName: 'Белянин Максим Николаевич' }
 ];
 
-// Middleware проверки токена
+// Проверка токена
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -71,7 +71,7 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// Вход в систему
+// Авторизация
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Заполните все поля.' });
@@ -84,7 +84,7 @@ app.post('/api/login', (req, res) => {
     res.json({ token });
 });
 
-// Данные дашборда
+// Данные панелей управления
 app.get('/api/dashboard', authenticateToken, (req, res) => {
     if (req.user.role === 'resident') {
         res.json({ type: 'resident', profile: profiles[req.user.id] || {}, metrics: metricsData.filter(m => m.resident_id === req.user.id) });
@@ -100,7 +100,7 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
     }
 });
 
-// Получить профиль конкретного резидента для админа
+// Просмотр анкеты резидента администратором
 app.get('/api/resident/:id', authenticateToken, (req, res) => {
     const resId = parseInt(req.params.id);
     res.json({ profile: profiles[resId] || {}, metrics: metricsData.filter(m => m.resident_id === resId) });
@@ -125,7 +125,7 @@ app.post('/api/residents/create', authenticateToken, (req, res) => {
     res.json({ success: true, id: nextId });
 });
 
-// События календаря
+// Календарь
 app.get('/api/events/month/:yearMonth', authenticateToken, (req, res) => {
     const target = req.params.yearMonth;
     const monthlyEvents = events.filter(e => e.event_date.startsWith(target));

@@ -59,29 +59,37 @@ async function loadDashboardData() {
         
         const data = await res.json();
         
-        // Сервер вернул роль 'admin'
-        if (data.type === 'admin') {
-            currentRole = 'admin';
+        // Проверяем тип, который пришёл от сервера ('admin' или 'speaker')
+        if (data.type === 'admin' || data.type === 'speaker') {
+            currentRole = 'speaker'; // Для фронтенда оставляем speaker, чтобы работала старая верстка
             
-            // Показываем блок методолога (в верстке он называется speaker-view)
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
             
-            // Рендерим список резидентов
+            // Безопасное отображение кнопки добавления резидента (без падения в ошибку)
+            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('btn-add-speaker-resident');
+            if (addResBtn) addResBtn.classList.remove('hidden');
+            
             renderRegistry(data.residents);
         } else {
             currentRole = 'resident';
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.add('hidden');
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.remove('hidden');
             
+            // Прячем кнопку добавления для обычного резидента
+            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('btn-add-speaker-resident');
+            if (addResBtn) addResBtn.classList.add('hidden');
+            
             renderResidentDashboard(data);
         }
         
-        // Гарантированно загружаем события календаря
+        // После успешной отрисовки экрана ЗАПУСКАЕМ календарь
         await loadCalendarEvents();
     } catch (err) {
-        console.error("Ошибка загрузки дашборда:", err);
-        logout();
+        console.error("Критическая ошибка дашборда:", err);
+        // Если что-то пошло не так, не даем приложению зависнуть в "Загрузке"
+        const loadingBadge = document.querySelector('.loading-badge') || { textContent: '' }; 
+        loadingBadge.textContent = 'Ошибка загрузки';
     }
 }
 
@@ -330,12 +338,9 @@ async function renderGoogleCalendar() {
         const dayStr = String(day).padStart(2, '0');
         const fullDateStr = `${pickerVal}-${dayStr}`;
         
-        ccell.onclick = (e) => {
+        cell.onclick = (e) => {
     if (!e.target.classList.contains('counter-badge-clickable')) {
-        // Записываем выбранную дату в глобальную переменную
         currentSelectedDateStr = fullDateStr; 
-        
-        // И для ПК, и для мобилок гарантированно открываем модалку дня
         openDayModal(fullDateStr);
     }
 };
@@ -456,7 +461,7 @@ function openDayModal(dateStr) {
     
     dayModal.classList.remove('hidden');
     dayModal.style.display = 'block'; 
-    dayModal.style.zIndex = '3500'; 
+    dayModal.style.zIndex = '3500'; // Всплывает поверх мобильного таймлайна
     
     const titleElem = document.getElementById('modal-day-title');
     if (titleElem) {
@@ -464,7 +469,6 @@ function openDayModal(dateStr) {
         titleElem.innerText = `События на ${parts[2]}.${parts[1]}.${parts[0]}`;
     }
     
-    // Вызываем отрисовку контента внутри модалки
     renderDayEventsDetails();
 }
 
@@ -481,12 +485,13 @@ function renderDayEventsDetails() {
     
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // Проверяем права: роль 'admin' ИЛИ открыт интерфейс управления (speaker-view)
-    const isAdmin = currentRole === 'admin' || 
-                    (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
+    // Определяем, админ перед нами или нет (смотрим на роль или на видимость панели методолога)
+    const isManager = currentRole === 'speaker' || 
+                      currentRole === 'admin' || 
+                      (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
 
-    // Если это администратор, то кнопку добавления отрисовываем ВСЕГДА и в самом верху
-    if (isAdmin) {
+    // Если это менеджер/админ — кнопка «Добавить событие» будет ВСЕГДА на любом устройстве
+    if (isManager) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
         createBtn.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:12px; background: #b59473; color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: block !important;";
@@ -497,19 +502,17 @@ function renderDayEventsDetails() {
         listContainer.appendChild(createBtn);
     }
 
-    // Если в этот день нет событий
     if (dayEvents.length === 0) {
         listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted); width: 100%;">Событий не запланировано.</p>`;
         return; 
     }
 
-    // Если события есть — выводим карточки
     dayEvents.forEach(e => {
         const card = document.createElement('div');
         card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px; border-left: 3px solid #b59473;";
         
         let actionButtonsHtml = '';
-        if (isAdmin) {
+        if (isManager) {
             actionButtonsHtml = `
                 <button class="btn-primary" style="padding:6px 12px; font-size:0.8rem; margin-top:10px;" 
                     onclick="triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}', '${e.event_date}')">
@@ -533,7 +536,7 @@ function renderDayEventsDetails() {
         }
 
         let adminCounterHtml = '';
-        if (isAdmin) {
+        if (isManager) {
             adminCounterHtml = `
                 <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
                     <span style="color:#b59473; cursor:pointer; text-decoration:underline;" 

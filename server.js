@@ -221,3 +221,7 @@ app.delete('/api/events/:id', authenticateToken, (req, res) => {
 
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.listen(PORT, () => { console.log(`[OK] Server running on port ${PORT}`); });
+
+// Метод сохранения расширенных метрик /api/metrics/extended-update на бэкенде 
+// гарантирует запись полей summary_* и recs_*, которые теперь полностью 
+// отображаются на фронтенде в функции openSpeakerEditor.

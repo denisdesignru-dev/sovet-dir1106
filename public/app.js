@@ -363,54 +363,82 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    const timeSlots = document.querySelectorAll('.time-slot');
-    timeSlots.forEach(slot => {
-        slot.classList.remove('has-event');
-        // Функция создания встреч методологом через сетку времени
-        if (currentRole === 'speaker' || currentRole === 'admin') {
-            slot.onclick = () => triggerCreateEvent(slot.getAttribute('data-hour'));
-        }
-    });
-
-    if(dayEvents.length === 0) {
+    if (dayEvents.length === 0) {
         listContainer.innerHTML = `<p style="padding:20px; text-align:center; color: var(--text-muted);">Событий на этот день не запланировано.</p>`;
         return;
     }
 
     dayEvents.forEach(e => {
-        const hour = e.event_time.split(':')[0] + ':00';
-        const slot = document.querySelector(`.time-slot[data-hour="${hour}"]`);
-        if (slot) slot.classList.add('has-event');
-
         const card = document.createElement('div');
         card.className = 'detailed-event-card';
-        card.innerHTML = `
-            <h4>${e.title}</h4>
-            <p class="event-meta-text">🕒 Время: <strong>${e.event_time}</strong></p>
-            <p class="event-meta-text">📍 Локация: <strong>${e.address}</strong></p>
-        `;
+        card.style.position = 'relative';
+        card.style.marginBottom = '15px';
         
+        let actionButtonsHtml = '';
+
         if (currentRole === 'speaker' || currentRole === 'admin') {
-            card.style.cursor = 'pointer';
-            card.onclick = () => triggerEditEvent(e.id, e.title, e.event_time, e.address);
+            // Кнопка редактирования для методолога
+            actionButtonsHtml = `
+                <button class="btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-top:10px;" 
+                    onclick="event.stopPropagation(); triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}')">
+                    Редактировать / Удалить
+                </button>
+            `;
         } else if (currentRole === 'resident') {
-            // Восстановление RSVP на десктопе для резидента
+            // Проверяем текущий статус RSVP резидента
             const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
-            const statusHtml = userRsvp ? (userRsvp.status === 'going' ? '<span style="color:var(--status-green);">Вы идете</span>' : '<span style="color:var(--status-red);">Вы отказались</span>') : 'Статус не определен';
             
-            const rsvpBlock = document.createElement('div');
-            rsvpBlock.style.cssText = "margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;";
-            rsvpBlock.innerHTML = `
-                <p class="event-meta-text" style="margin-bottom:8px;">Статус участия: <strong>${statusHtml}</strong></p>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-confirm-action" style="padding:8px 16px; font-size:0.85rem;" onclick="submitRsvp(${e.id}, 'going')">Точно буду</button>
-                    <button class="btn-cancel-action" style="padding:8px 16px; font-size:0.85rem;" onclick="submitRsvp(${e.id}, 'declined')">Не смогу</button>
+            if (userRsvp) {
+                if (userRsvp.status === 'going') {
+                    actionButtonsHtml = `<div style="color:var(--status-green); font-weight:600; margin-top:10px;">Вы записаны</div>`;
+                } else if (userRsvp.status === 'declined') {
+                    actionButtonsHtml = `<div style="color:var(--status-red); font-weight:600; margin-top:10px;">Вы отказались от участия</div>`;
+                }
+            } else {
+                // Если выбора еще нет — показываем текст "Подтвердите участие" и новые кнопки
+                actionButtonsHtml = `
+                    <div style="font-size:0.85rem; color:var(--accent-gold); margin-top:10px; margin-bottom:6px;">Статус: Подтвердите участие</div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-confirm-action" style="padding:6px 14px; font-size:0.8rem;" onclick="handleResidentDecision(${e.id}, 'going')">Я буду</button>
+                        <button class="btn-cancel-action" style="padding:6px 14px; font-size:0.8rem;" onclick="handleResidentDecision(${e.id}, 'declined')">Не в этот раз</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Счетчик участников внизу для администратора
+        let adminCounterHtml = '';
+        if (currentRole === 'speaker' || currentRole === 'admin') {
+            adminCounterHtml = `
+                <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
+                    <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); showAttendeesModal(${JSON.stringify(e.attendees || [])})">
+                        Участники (Подтвердили/Отклонили): ${e.going_count || 0} чел.
+                    </span>
                 </div>
             `;
-            card.appendChild(rsvpBlock);
         }
+
+        card.innerHTML = `
+            <h4>${e.title}</h4>
+            <p class="event-meta-text" style="margin-top:5px;">🕒 Время: <strong>${e.event_time}</strong></p>
+            <p class="event-meta-text">📍 Адрес: <strong>${e.address}</strong></p>
+            ${actionButtonsHtml}
+            ${adminCounterHtml}
+        `;
+        
         listContainer.appendChild(card);
     });
+}
+
+// Обработчик нажатия кнопок с окнами подтверждения "Да/Отмена"
+function handleResidentDecision(eventId, status) {
+    let question = status === 'going' ? "Подтверждаете участие?" : "Вы точно хотите отказаться от участия?";
+    
+    if (confirm(question)) {
+        // Если пользователь нажал "Да" — отправляем на бэкенд и блокируем изменение
+        submitRsvp(eventId, status);
+    }
+    // Если нажал "Отмена" — окно просто закроется, ничего не произойдет
 }
 
 async function submitRsvp(eventId, status) {
@@ -534,9 +562,79 @@ function switchTab(tab) {
     document.getElementById(`content-${tab}`).classList.remove('hidden');
     document.getElementById(`tab-${tab}`).classList.add('active');
 
-    if(currentRole === 'speaker') {
-        if(tab === 'dashboard') document.getElementById('global-add-resident-btn').classList.remove('hidden');
-        else document.getElementById('global-add-resident-btn').classList.add('hidden');
+    // Управление отображением плавающих кнопок методолога
+    if (currentRole === 'speaker' || currentRole === 'admin') {
+        if (tab === 'dashboard') {
+            document.getElementById('global-add-resident-btn').classList.remove('hidden');
+            document.getElementById('calendar-add-event-btn').classList.add('hidden');
+        } else {
+            document.getElementById('global-add-resident-btn').classList.add('hidden');
+            document.getElementById('calendar-add-event-btn').classList.remove('hidden');
+        }
+    } else {
+        document.getElementById('global-add-resident-btn').classList.add('hidden');
+        document.getElementById('calendar-add-event-btn').classList.add('hidden');
     }
-    if(tab === 'calendar') renderGoogleCalendar();
+
+    if (tab === 'calendar') {
+        renderGoogleCalendar();
+        setupNotificationCheck(); // Включаем таймер проверки уведомлений
+    }
+}
+
+// Запрос прав на системные уведомления при входе в календарь
+function setupNotificationCheck() {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+    // Запуск проверки каждые 60 секунд
+    if (!window.notificationIntervalId) {
+        window.notificationIntervalId = setInterval(checkUpcomingEventsAndNotify, 60000);
+        checkUpcomingEventsAndNotify(); // И разово при запуске
+    }
+}
+
+function checkUpcomingEventsAndNotify() {
+    if (currentRole !== 'resident' || !cachedEvents.length) return;
+
+    const now = new Date();
+    
+    cachedEvents.forEach(e => {
+        // Проверяем, идет ли резидент на встречу
+        const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
+        if (!userRsvp || userRsvp.status !== 'going') return;
+
+        // Парсим дату и время события (например: "2026-06-24" и "14:00")
+        const [year, month, day] = e.event_date.split('-').map(Number);
+        const [hours, minutes] = e.event_time.split(':').map(Number);
+        const eventDateTime = new Date(year, month - 1, day, hours, minutes);
+
+        const timeDiffMs = eventDateTime - now;
+        const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
+
+        // Создаем уникальные ключи для localStorage, чтобы не спамить каждую минуту
+        const storageKey24h = `notified_24h_${e.id}`;
+        const storageKey2h = `notified_2h_${e.id}`;
+
+        // 1. Проверка за 1 день (от 23 до 24 часов до мероприятия)
+        if (timeDiffHours > 23 && timeDiffHours <= 24 && !localStorage.getItem(storageKey24h)) {
+            sendBrowserNotification(`Напоминание за день`, `Завтра в ${e.event_time} состоится мероприятие: "${e.title}". Ждем вас!`);
+            localStorage.setItem(storageKey24h, 'true');
+        }
+
+        // 2. Проверка за 2 часа (от 1.9 до 2 часов до мероприятия)
+        if (timeDiffHours > 1.9 && timeDiffHours <= 2 && !localStorage.getItem(storageKey2h)) {
+            sendBrowserNotification(`Напоминание за 2 часа`, `Сегодня в ${e.event_time} начнётся: "${e.title}". Не опаздывайте!`);
+            localStorage.setItem(storageKey2h, 'true');
+        }
+    });
+}
+
+function sendBrowserNotification(title, text) {
+    if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, { body: text, icon: '/favicon.svg' });
+    } else {
+        // Запасной вариант, если уведомления запрещены в браузере
+        alert(`🔔 ${title}\n\n${text}`);
+    }
 }

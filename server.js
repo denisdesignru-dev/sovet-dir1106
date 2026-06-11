@@ -15,8 +15,6 @@ let users = [
     { id: 1, email: 'белянин@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'resident', fullName: 'Белянин Максим Николаевич' },
     { id: 2, email: 'admin@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'admin', fullName: 'Главный Методолог' },
     { id: 3, email: 'speaker@test.ru', passwordHash: bcrypt.hashSync('123456', 10), role: 'speaker', fullName: 'Спикер Клуба' },
-    
-    // ➕ ДОБАВЬ СВОЙ РЕАЛЬНЫЙ EMAIL СЮДА:
     { id: 4, email: 'den2111067814@gmail.com', passwordHash: bcrypt.hashSync('123456', 10), role: 'admin', fullName: 'Денис Стариков' }
 ];
 
@@ -60,7 +58,7 @@ let rsvps = [
     { event_id: 3, resident_id: 1, status: 'going', fullName: 'Белянин Максим Николаевич' }
 ];
 
-// Проверка токена
+// Middleware проверки токена
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -73,7 +71,7 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// Авторизация
+// Вход в систему
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Заполните все поля.' });
@@ -86,7 +84,7 @@ app.post('/api/login', (req, res) => {
     res.json({ token });
 });
 
-// Данные панелей управления
+// Данные дашборда
 app.get('/api/dashboard', authenticateToken, (req, res) => {
     if (req.user.role === 'resident') {
         res.json({ type: 'resident', profile: profiles[req.user.id] || {}, metrics: metricsData.filter(m => m.resident_id === req.user.id) });
@@ -98,52 +96,36 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
             niche: profiles[u.id]?.niche || '-',
             turnover: profiles[u.id]?.turnover || '-'
         }));
-        // Возвращаем исходный тип 'admin', фронтенд сам сопоставит его со старой версткой
         res.json({ type: 'admin', residents: registry });
     }
 });
 
-// Создание нового резидента администратором
-app.post('/api/residents/create', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin' && req.user.role !== 'speaker') {
-        return res.status(403).json({ error: 'Нет доступа' });
-    }
-    const { fullName, email, password, company, niche, turnover, entryRequest } = req.body;
-    
-    if (!email) return res.status(400).json({ error: 'Email обязателен к заполнению' });
-
-    const existingUser = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
-    if (existingUser) return res.status(400).json({ error: 'Пользователь с таким Email уже существует' });
-
-    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
-    const passwordToHash = (password && password.trim() !== '') ? password.trim() : '123456';
-    const passwordHash = bcrypt.hashSync(passwordToHash, 10);
-
-    users.push({ id: nextId, email: email.toLowerCase().trim(), passwordHash: passwordHash, role: 'resident', fullName: fullName });
-    profiles[nextId] = { full_name: fullName, company: company || '-', niche: niche || '-', turnover: turnover || '-', entry_request: entryRequest || '-' };
-
-    res.json({ success: true, email: email, password: passwordToHash });
-});
-
+// Получить профиль конкретного резидента для админа
 app.get('/api/resident/:id', authenticateToken, (req, res) => {
     const resId = parseInt(req.params.id);
     res.json({ profile: profiles[resId] || {}, metrics: metricsData.filter(m => m.resident_id === resId) });
 });
 
-app.post('/api/metrics/extended-update', authenticateToken, (req, res) => {
+// Создание нового резидента
+app.post('/api/residents/create', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'speaker') return res.status(403).json({ error: 'Запрещено.' });
-    const { resident_id, date_period, summary_title, summary_date, summary_topic, summary_content, summary_requests, recs_title, recs_desc } = req.body;
+    const { fullName, email, password, company, niche, turnover, entryRequest } = req.body;
     
-    let item = metricsData.find(m => m.resident_id === parseInt(resident_id) && m.date_period === date_period);
-    if (!item) {
-        item = { id: Date.now(), resident_id: parseInt(resident_id), date_period, business_score: 5, team_score: 5, health_score: 5, relations_score: 5 };
-        metricsData.push(item);
-    }
-    Object.assign(item, { summary_title, summary_date, summary_topic, summary_content, summary_requests, recs_title, recs_desc, recommendations: `${recs_title}: ${recs_desc}` });
-    res.json({ success: true });
+    if (!email || !fullName) return res.status(400).json({ error: 'Заполните обязательные поля.' });
+    
+    const existing = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
+    if (existing) return res.status(400).json({ error: 'Пользователь уже существует.' });
+
+    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+    const pass = password || '123456';
+    
+    users.push({ id: nextId, email: email.toLowerCase().trim(), passwordHash: bcrypt.hashSync(pass, 10), role: 'resident', fullName });
+    profiles[nextId] = { full_name: fullName, company: company || '-', niche: niche || '-', turnover: turnover || '-', entry_request: entryRequest || '-' };
+    
+    res.json({ success: true, id: nextId });
 });
 
-// Календарь событий
+// События календаря
 app.get('/api/events/month/:yearMonth', authenticateToken, (req, res) => {
     const target = req.params.yearMonth;
     const monthlyEvents = events.filter(e => e.event_date.startsWith(target));

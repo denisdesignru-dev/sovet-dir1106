@@ -59,23 +59,28 @@ async function loadDashboardData() {
         
         const data = await res.json();
         
-        // Переводим интерфейс на строгую роль admin
+        // Сервер вернул роль 'admin'
         if (data.type === 'admin') {
             currentRole = 'admin';
-            document.getElementById('resident-view').classList.add('hidden');
-            document.getElementById('speaker-view').classList.remove('hidden'); // HTML-id контейнера оставляем, чтобы верстка не поплыла
+            
+            // Показываем блок методолога (в верстке он называется speaker-view)
+            if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
+            if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
+            
+            // Рендерим список резидентов
             renderRegistry(data.residents);
         } else {
             currentRole = 'resident';
-            document.getElementById('speaker-view').classList.add('hidden');
-            document.getElementById('resident-view').classList.remove('hidden');
+            if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.add('hidden');
+            if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.remove('hidden');
+            
             renderResidentDashboard(data);
         }
         
-        // Загружаем календарь после определения роли
+        // Гарантированно загружаем события календаря
         await loadCalendarEvents();
     } catch (err) {
-        console.error(err);
+        console.error("Ошибка загрузки дашборда:", err);
         logout();
     }
 }
@@ -449,7 +454,6 @@ function openDayModal(dateStr) {
     const dayModal = document.getElementById('day-modal');
     if (!dayModal) return;
     
-    // Сбрасываем скрывающий класс и накручиваем приоритет слоев для мобилок
     dayModal.classList.remove('hidden');
     dayModal.style.display = 'block'; 
     dayModal.style.zIndex = '3500'; 
@@ -460,7 +464,7 @@ function openDayModal(dateStr) {
         titleElem.innerText = `События на ${parts[2]}.${parts[1]}.${parts[0]}`;
     }
     
-    // Перерисовываем список (и кнопку создания для админа)
+    // Вызываем отрисовку контента внутри модалки
     renderDayEventsDetails();
 }
 
@@ -477,11 +481,11 @@ function renderDayEventsDetails() {
     
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // Проверяем админские права по роли или по активному экрану
+    // Проверяем права: роль 'admin' ИЛИ открыт интерфейс управления (speaker-view)
     const isAdmin = currentRole === 'admin' || 
                     (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
 
-    // Если зашел админ — кнопка ДОЛЖНА БЫТЬ ТУТ ВСЕГДА
+    // Если это администратор, то кнопку добавления отрисовываем ВСЕГДА и в самом верху
     if (isAdmin) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -493,13 +497,13 @@ function renderDayEventsDetails() {
         listContainer.appendChild(createBtn);
     }
 
-    // Если событий нет — пишем плашку под кнопкой добавления
+    // Если в этот день нет событий
     if (dayEvents.length === 0) {
         listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted); width: 100%;">Событий не запланировано.</p>`;
         return; 
     }
 
-    // Рендерим существующие карточки встреч
+    // Если события есть — выводим карточки
     dayEvents.forEach(e => {
         const card = document.createElement('div');
         card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px; border-left: 3px solid #b59473;";

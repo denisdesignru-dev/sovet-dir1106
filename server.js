@@ -98,11 +98,14 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 });
 
 // Добавление нового резидента методологом (Исправленная версия под роли)
+// Добавление нового резидента методологом (Исправленная версия)
 app.post('/api/residents/create', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') {
+    // Разрешаем доступ и главному админу, и методологу (speaker)
+    if (req.user.role !== 'admin' && req.user.role !== 'speaker') {
         return res.status(403).json({ error: 'Нет доступа' });
     }
-    const { fullName, email, company, niche, turnover, entryRequest } = req.body;
+    
+    const { fullName, email, password, company, niche, turnover, entryRequest } = req.body;
     
     if (!email) {
         return res.status(400).json({ error: 'Email обязателен к заполнению' });
@@ -114,7 +117,10 @@ app.post('/api/residents/create', authenticateToken, (req, res) => {
     }
 
     const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
-    const passwordHash = bcrypt.hashSync('123456', 10);
+    
+    // Если фронтенд передал пароль — хешируем его, если нет — берем дефолтный '123456'
+    const passwordToHash = (password && password.trim() !== '') ? password.trim() : '123456';
+    const passwordHash = bcrypt.hashSync(passwordToHash, 10);
 
     users.push({
         id: nextId,
@@ -132,7 +138,7 @@ app.post('/api/residents/create', authenticateToken, (req, res) => {
         entry_request: entryRequest || '-'
     };
 
-    res.json({ success: true, email: email });
+    res.json({ success: true, email: email, password: passwordToHash });
 });
 
 app.get('/api/resident/:id', authenticateToken, (req, res) => {

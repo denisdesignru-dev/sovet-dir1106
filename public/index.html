@@ -3,145 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Совет Директоров — Премиальное Пространство</title>
+    <title>Совет Директоров — Пространство Методологии</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="icon" type="image/png" href="/favicon.png" sizes="256x256">
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --bg-main: #0d0d0d;
-            --bg-card: #141414;
-            --bg-input: #1a1a1a;
-            --accent-gold: #b59473;
-            --text-main: #ffffff;
-            --text-muted: #82807b;
-            --border-color: #222222;
-            --status-green: #2ecc71;
-            --status-red: #e74c3c;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-main); padding-bottom: 60px; overflow-x: hidden; }
-        .hidden { display: none !important; }
-
-        header {
-            background-color: var(--bg-card); border-bottom: 1px solid var(--border-color);
-            padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .logo-container img { height: 35px; display: block; }
-        nav .nav-link { color: var(--text-muted); text-decoration: none; margin-right: 20px; font-size: 0.95rem; cursor: pointer; transition: color 0.2s; }
-        nav .nav-link.active, nav .nav-link:hover { color: var(--accent-gold); }
-
-        .user-badge { background: var(--bg-input); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; border: 1px solid var(--border-color); color: var(--accent-gold); }
-        .btn-logout { background: transparent; border: 1px solid var(--status-red); color: var(--status-red); padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-left: 15px; font-size: 0.85rem; }
-
-        .auth-container { max-width: 400px; margin: 100px auto; background: var(--bg-card); padding: 4px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .auth-inner { padding: 30px; }
-        .auth-inner h3 { margin-bottom: 20px; font-weight: 400; color: var(--accent-gold); text-align: center; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 6px; }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); padding: 12px; color: #fff; border-radius: 6px; font-size: 0.95rem; outline: none; }
-        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent-gold); }
-        
-        main { max-width: 1400px; margin: 40px auto; padding: 0 20px; position: relative; min-height: 70vh; }
-        .screen-title { font-size: 1.8rem; font-weight: 400; margin-bottom: 25px; letter-spacing: 0.5px; }
-
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
-        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; position: relative; }
-        .card h3 { font-size: 1.2rem; margin-bottom: 20px; color: var(--accent-gold); font-weight: 500; }
-        
-        .metric-slider-wrapper { margin-bottom: 18px; }
-        .metric-label-flex { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
-        .slider-control-container { display: flex; align-items: center; gap: 15px; }
-        .slider-control-container input[type="range"] { flex: 1; -webkit-appearance: none; background: var(--bg-input); height: 6px; border-radius: 3px; }
-        .slider-control-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-gold); cursor: pointer; }
-        .slider-num-input { width: 50px; background: var(--bg-input); border: 1px solid var(--border-color); color: #fff; text-align: center; padding: 4px; border-radius: 4px; }
-
-        .chart-container { position: relative; height: 300px; width: 100%; }
-        .residents-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-        .resident-item { background: var(--bg-card); border: 1px solid var(--border-color); padding: 20px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .resident-item:hover { border-color: var(--accent-gold); transform: translateY(-2px); }
-
-        /* Табы внутри модалок */
-        .modal-tabs-header { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 15px; }
-        .modal-tab-link { color: var(--text-muted); padding: 10px 5px; cursor: pointer; font-size: 0.95rem; transition: 0.2s; border-bottom: 2px solid transparent; }
-        .modal-tab-link.active { color: var(--accent-gold); border-color: var(--accent-gold); }
-
-        /* Календарная сетка */
-        .calendar-control-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .calendar-grid-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px; font-weight: 600; }
-        .calendar-days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-        .calendar-day-cell { background: var(--bg-card); border: 1px solid var(--border-color); min-height: 125px; border-radius: 6px; padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 5px; }
-        .calendar-day-cell:hover { background: #1a1a1a; }
-        .calendar-day-cell.empty-cell { background: transparent; border: none; cursor: default; }
-        .calendar-day-cell.current-day { border-color: var(--accent-gold); }
-        .cell-day-number { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
-
-        .micro-event-badge { background: rgba(181, 148, 115, 0.12); color: var(--accent-gold); font-size: 0.75rem; padding: 4px 6px; border-radius: 4px; border-left: 2px solid var(--accent-gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .counter-badge-clickable { font-size: 0.75rem; color: var(--text-muted); text-decoration: underline; cursor: pointer; margin-top: auto; display: inline-block; }
-        .counter-badge-clickable:hover { color: var(--accent-gold); }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; justify-content: center; align-items: center; }
-        .day-modal-box { background: var(--bg-card); border: 1px solid var(--border-color); width: 950px; max-width: 95%; height: 85vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .modal-header-nav { padding: 20px 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        .close-btn { background: transparent; border: none; color: var(--text-muted); font-size: 1.6rem; cursor: pointer; }
-        .close-btn:hover { color: #fff; }
-
-        .day-modal-body-layout { flex: 1; display: flex; overflow: hidden; }
-        .time-axis-sidebar { width: 180px; border-right: 1px solid var(--border-color); overflow-y: auto; background: var(--bg-main); }
-        .time-slot { padding: 14px 15px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.01); cursor: pointer; }
-        .time-slot.has-event { border-left: 3px solid var(--accent-gold); color: #fff; }
-        .detailed-events-stream { flex: 1; overflow-y: auto; padding: 25px; background: #0f0f0f; }
-        
-        .detailed-event-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; border-left: 4px solid var(--accent-gold); }
-        .event-meta-text { color: var(--text-muted); font-size: 0.85rem; margin-top: 5px; }
-        .event-meta-text strong { color: #fff; }
-
-        .floating-create-btn { position: fixed; bottom: 30px; right: 30px; width: 55px; height: 55px; background: var(--accent-gold); color: #000; border: none; border-radius: 50%; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5); z-index: 999; }
-        .floating-create-btn:hover { transform: scale(1.05); }
-
-        .editor-modal-box { background: var(--bg-card); border: 1px solid var(--border-color); padding: 30px; border-radius: 12px; width: 500px; max-width: 95%; max-height: 90vh; overflow-y: auto; }
-        .editor-actions-flex { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-        .btn-danger-del { background: var(--status-red); color: #fff; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: auto; }
-
-        /* Список участников RSVP */
-        .attendee-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.95rem; }
-        .badge-status-sub { font-weight: 600; font-size: 0.85rem; }
-
-        /* --- АДАПТИВНАЯ СЕТКА СТИЛЕЙ ПО ОГРАНИЧЕНИЯМ ТЗ --- */
-        @media (max-width: 1920px) { main { max-width: 1440px; } }
-        @media (max-width: 1440px) { main { max-width: 1200px; } .dashboard-grid { gap: 20px; } }
-        @media (max-width: 1024px) {
-            .dashboard-grid { grid-template-columns: 1fr; }
-            .day-modal-box { width: 95%; height: 80vh; }
-            .calendar-day-cell { min-height: 100px; }
-        }
-        @media (max-width: 768px) {
-            header { padding: 15px; flex-direction: column; gap: 15px; text-align: center; }
-            nav { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-            nav .nav-link { margin-right: 0; padding: 5px 10px; }
-            .calendar-grid-header { font-size: 0.75rem; }
-            .calendar-day-cell { min-height: 85px; padding: 6px; }
-            .cell-day-number { font-size: 0.8rem; }
-            .day-modal-body-layout { flex-direction: column; }
-            .time-axis-sidebar { width: 100%; height: 80px; display: flex; border-right: none; border-bottom: 1px solid var(--border-color); }
-            .time-slot { padding: 10px; white-space: nowrap; display: inline-block; }
-        }
-        @media (max-width: 425px) {
-            .screen-title { font-size: 1.4rem; }
-            .calendar-days-grid { gap: 4px; }
-            .calendar-day-cell { min-height: 65px; border-radius: 4px; }
-            .micro-event-badge { font-size: 0.65rem; padding: 2px; }
-            .counter-badge-clickable { font-size: 0.65rem; }
-            .card { padding: 15px; }
-        }
-        @media (max-width: 320px) {
-            header .logo-container img { height: 28px; }
-            .calendar-grid-header { font-size: 0.65rem; }
-            .calendar-day-cell { min-height: 55px; }
-            .btn-logout { margin-left: 5px; padding: 4px 8px; }
-        }
-    </style>
 </head>
 <body>
 
@@ -150,14 +15,14 @@
         <h3>Вход в пространство</h3>
         <div class="form-group">
             <label>Email</label>
-            <input type="email" id="email" value="белянин@test.ru">
+            <input type="email" id="email" value="admin@test.ru">
         </div>
         <div class="form-group">
             <label>Пароль</label>
             <input type="password" id="password" value="123456">
         </div>
-        <button class="btn-primary" onclick="handleLogin()">Войти</button>
-        <div id="login-error" class="error-msg"></div>
+        <button class="btn-primary" style="width: 100%;" onclick="handleLogin()">Войти</button>
+        <div id="login-error" style="color: var(--status-red); font-size: 0.85rem; margin-top: 10px; text-align: center;"></div>
     </div>
 </div>
 
@@ -192,7 +57,7 @@
                         <form onsubmit="saveResidentSelfMetrics(event)">
                             <div style="margin-bottom:15px;">
                                 <label style="font-size:0.85rem; color:var(--text-muted);">Отчетный период:</label>
-                                <select id="periodSelect" class="month-selector-input">
+                                <select id="periodSelect">
                                     <option value="Июнь 2026">Июнь 2026</option>
                                     <option value="Май 2026">Май 2026</option>
                                 </select>
@@ -247,16 +112,15 @@
 
                 <div id="editor-block" class="card hidden" style="margin-top:30px; padding-bottom: 80px;">
                     <h3 id="edit-resident-title">Внести директивы</h3>
-                    <div class="form-group">
-                        <label>Выбранный период</label>
-                        <select id="edit-period" class="month-selector-input">
+                    <div class="form-group" style="max-width: 300px;">
+                        <label>Выбранный отчетный период</label>
+                        <select id="edit-period">
                             <option value="Июнь 2026">Июнь 2026</option>
                             <option value="Май 2026">Май 2026</option>
                         </select>
                     </div>
                     
-                    <div id="extended-view-logs" style="margin-top: 15px; border-top: 1px solid #222; padding-top: 15px;">
-                        </div>
+                    <div id="extended-view-logs" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;"></div>
 
                     <button class="floating-create-btn" style="position: absolute; bottom: 20px; right: 20px;" onclick="openSessionResultsModal()">+</button>
                 </div>
@@ -266,10 +130,15 @@
         <div id="content-calendar" class="hidden">
             <div class="calendar-control-panel">
                 <h2 id="calendar-month-title" class="screen-title" style="margin-bottom:0;">Календарь</h2>
-                <input type="month" id="calendarMonthPicker" class="month-selector-input" value="2026-06" onchange="renderGoogleCalendar()">
+                <input type="month" id="calendarMonthPicker" style="width:180px; padding:8px;" value="2026-06" onchange="renderGoogleCalendar()">
             </div>
             <div class="calendar-grid-header"><div>ПН</div><div>ВТ</div><div>СР</div><div>ЧТ</div><div>ПТ</div><div>СБ</div><div>ВС</div></div>
             <div id="calendar-days-container" class="calendar-days-grid"></div>
+
+            <div id="mobile-timeline-view" class="mobile-events-timeline">
+                <div class="mobile-timeline-title" id="mobile-timeline-date-title">События дня</div>
+                <div id="mobile-timeline-events-list"></div>
+            </div>
         </div>
     </main>
 </div>
@@ -277,25 +146,25 @@
 <div id="add-resident-modal" class="modal-overlay hidden">
     <div class="editor-modal-box">
         <h3>Добавить нового резидента</h3>
-        <div class="form-group">
+        <div class="form-group" style="margin-top:15px;">
             <label>ФИО</label>
             <input type="text" id="add-res-name" placeholder="Иванов Иван Иванович">
         </div>
         <div class="form-group">
             <label>Компания</label>
-            <input type="text" id="add-res-company" placeholder="ООО Инновация">
+            <input type="text" id="add-res-company" placeholder="ООО Трейд">
         </div>
         <div class="form-group">
             <label>Ниша</label>
-            <input type="text" id="add-res-niche" placeholder="Производство деталей">
+            <input type="text" id="add-res-niche" placeholder="Оптовая торговля">
         </div>
         <div class="form-group">
             <label>Оборот в год</label>
-            <input type="text" id="add-res-turnover" placeholder="50 млн руб.">
+            <input type="text" id="add-res-turnover" placeholder="100 млн руб.">
         </div>
         <div class="form-group">
             <label>Входной запрос</label>
-            <textarea id="add-res-request" style="height: 80px; background:var(--bg-input); border:1px solid var(--border-color); color:#fff; padding:10px; border-radius:6px;" placeholder="Основные ограничения..."></textarea>
+            <textarea id="add-res-request" style="height: 70px;" placeholder="Поиск точек масштабирования..."></textarea>
         </div>
         <div class="editor-actions-flex">
             <button class="btn-cancel-action" onclick="closeAddResidentModal()">Отмена</button>
@@ -314,7 +183,7 @@
         <div id="modal-body-summary">
             <div class="form-group">
                 <label>Название встречи</label>
-                <input type="text" id="log-summary-title" placeholder="Совет Директоров">
+                <input type="text" id="log-summary-title" placeholder="Регулярный Совет Директоров">
             </div>
             <div class="form-group">
                 <label>Дата встречи</label>
@@ -326,28 +195,28 @@
             </div>
             <div class="form-group">
                 <label>Краткое содержание</label>
-                <textarea id="log-summary-content" style="height:80px; background:var(--bg-input); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px;"></textarea>
+                <textarea id="log-summary-content" style="height:80px;"></textarea>
             </div>
             <div class="form-group">
                 <label>Запросы</label>
-                <textarea id="log-summary-requests" style="height:60px; background:var(--bg-input); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px;"></textarea>
+                <textarea id="log-summary-requests" style="height:60px;"></textarea>
             </div>
         </div>
 
         <div id="modal-body-recommendations" class="hidden">
             <div class="form-group">
-                <label>Название</label>
-                <input type="text" id="log-recs-title" placeholder="Стратегический фокус">
+                <label>Название рекомендации</label>
+                <input type="text" id="log-recs-title" placeholder="Стратегический вектор развития">
             </div>
             <div class="form-group">
                 <label>Описание</label>
-                <textarea id="log-recs-desc" style="height:120px; background:var(--bg-input); color:#fff; border:1px solid var(--border-color); padding:10px; border-radius:6px;"></textarea>
+                <textarea id="log-recs-desc" style="height:120px;"></textarea>
             </div>
         </div>
 
         <div class="editor-actions-flex">
             <button class="btn-cancel-action" onclick="closeSessionResultsModal()">Отмена</button>
-            <button class="btn-confirm-action" onclick="submitSessionResults()">Сохранить итоги</button>
+            <button class="btn-confirm-action" onclick="submitSessionResults()">Сохранить</button>
         </div>
     </div>
 </div>
@@ -357,7 +226,7 @@
         <h3>Состав участников события</h3>
         <div id="attendees-rows-container" style="margin-top:20px; max-height:40vh; overflow-y:auto;"></div>
         <div class="editor-actions-flex">
-            <button class="btn-primary" onclick="document.getElementById('attendees-list-modal').classList.add('hidden')">Закрыть</button>
+            <button class="btn-primary" style="width:100%;" onclick="document.getElementById('attendees-list-modal').classList.add('hidden')">Закрыть</button>
         </div>
     </div>
 </div>
@@ -386,7 +255,7 @@
     <div class="editor-modal-box">
         <h3 id="editor-modal-title">Настройка события</h3>
         <input type="hidden" id="edit-event-id">
-        <div class="form-group">
+        <div class="form-group" style="margin-top:15px;">
             <label>Название мероприятия</label>
             <input type="text" id="event-title-input">
         </div>

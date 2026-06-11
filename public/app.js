@@ -464,7 +464,7 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // Кнопка создания события на ПК для методолога/админа
+    // 1. Кнопка создания события на ПК теперь рендерится в первую очередь и всегда видна методологу/админу
     if (currentRole === 'speaker' || currentRole === 'admin') {
         const createBtnPC = document.createElement('button');
         createBtnPC.className = "btn-primary";
@@ -476,11 +476,13 @@ function renderDayEventsDetails() {
         listContainer.appendChild(createBtnPC);
     }
 
+    // 2. Если событий нет, просто дописываем текст вниз, но НЕ прерываем функцию через return
     if (dayEvents.length === 0) {
         listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted);">Событий не запланировано.</p>`;
-        return;
+        return; // Тут ретурн безопасен, так как кнопка уже добавлена выше
     }
 
+    // 3. Если события есть — рендерим их карточки
     dayEvents.forEach(e => {
         const card = document.createElement('div');
         card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px;";

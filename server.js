@@ -103,22 +103,21 @@ app.post('/api/residents/create', checkAuth, (req, res) => {
     }
     const { fullName, email, company, niche, turnover, entryRequest } = req.body;
     
-    // Используем email переданный из формы
     if (!email) {
         return res.status(400).json({ error: 'Email обязателен к заполнению' });
     }
 
-    // Хешируем стандартный пароль "123456" для нового пользователя
+    // Хешируем стандартный пароль 123456
     const passwordHash = bcrypt.hashSync('123456', 10);
 
-    // Подключаем логику записи в вашу базу данных:
+    // 1. Сначала железно создаем аккаунт в таблице users, чтобы по нему можно было зайти
     db.run("INSERT INTO users (email, password, type) VALUES (?, ?, 'resident')", [email, passwordHash], function(err) {
         if (err) {
-            return res.status(500).json({ error: 'Пользователь с таким Email уже существует или ошибка БД' });
+            return res.status(500).json({ error: 'Пользователь с таким Email уже существует' });
         }
-        const userId = this.lastID; // получаем ID только что созданного пользователя
+        const userId = this.lastID; 
 
-        // Теперь записываем данные в таблицу профилей резидентов
+        // 2. Сразу же создаем его профиль в таблице residents, привязывая к созданному userId
         db.run(
             "INSERT INTO residents (user_id, full_name, company, niche, turnover, entry_request) VALUES (?, ?, ?, ?, ?, ?)",
             [userId, fullName, company, niche, turnover, entryRequest],

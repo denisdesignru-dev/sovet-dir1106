@@ -73,7 +73,9 @@ function authenticateToken(req, res, next) {
 // Руты авторизации и ЛК
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!email || !password) return res.status(400).json({ error: 'Заполните все поля.' });
+
+    const user = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
         return res.status(400).json({ error: 'Неверный логин или пароль.' });
     }
@@ -97,8 +99,8 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 });
 
 // Добавление нового резидента методологом
-app.post('/api/residents/create', checkAuth, (req, res) => {
-    if (req.user.type !== 'speaker' && req.user.type !== 'admin') {
+app.post('/api/residents/create', authenticateToken, (req, res) => {
+    if (req.user.role !== 'speaker' && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Нет доступа' });
     }
     const { fullName, email, company, niche, turnover, entryRequest } = req.body;
@@ -107,39 +109,35 @@ app.post('/api/residents/create', checkAuth, (req, res) => {
         return res.status(400).json({ error: 'Email обязателен к заполнению' });
     }
 
-    // Хешируем стандартный пароль 123456
+    // Проверяем, нет ли уже пользователя с такой почтой
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+        return res.status(400).json({ error: 'Пользователь с таким Email уже существует' });
+    }
+
+    // Создаем новый ID
+    const nextId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
     const passwordHash = bcrypt.hashSync('123456', 10);
 
-    // 1. Сначала железно создаем аккаунт в таблице users, чтобы по нему можно было зайти
-    db.run("INSERT INTO users (email, password, type) VALUES (?, ?, 'resident')", [email, passwordHash], function(err) {
-        if (err) {
-            return res.status(500).json({ error: 'Пользователь с таким Email уже существует' });
-        }
-        const userId = this.lastID; 
-
-        // 2. Сразу же создаем его профиль в таблице residents, привязывая к созданному userId
-        db.run(
-            "INSERT INTO residents (user_id, full_name, company, niche, turnover, entry_request) VALUES (?, ?, ?, ?, ?, ?)",
-            [userId, fullName, company, niche, turnover, entryRequest],
-            function(profileErr) {
-                if (profileErr) {
-                    return res.status(500).json({ error: 'Ошибка при создании профиля резидента' });
-                }
-                res.json({ success: true, email: email });
-            }
-        );
+    // 1. Сохраняем пользователя в массив авторизации users
+    users.push({
+        id: nextId,
+        email: email.toLowerCase(),
+        passwordHash: passwordHash,
+        role: 'resident',
+        fullName: fullName
     });
-});
 
+    // 2. Сохраняем данные его профиля в объект profiles
     profiles[nextId] = {
         full_name: fullName,
-        company,
-        niche,
-        turnover,
-        entry_request: entryRequest
+        company: company || '-',
+        niche: niche || '-',
+        turnover: turnover || '-',
+        entry_request: entryRequest || '-'
     };
 
-    res.json({ success: true, email: generatedEmail });
+    res.json({ success: true, email: email });
 });
 
 app.get('/api/resident/:id', authenticateToken, (req, res) => {

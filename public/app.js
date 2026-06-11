@@ -52,32 +52,31 @@ function showMainSystem() {
 
 async function loadDashboardData() {
     try {
-        const res = await fetch('/api/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
-        const data = await res.json();
-        currentRole = data.type;
+        const res = await fetch('/api/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) { logout(); return; }
         
-        if (document.getElementById('user-display-name')) {
-            document.getElementById('user-display-name').innerText = (data.type === 'speaker' || data.type === 'admin') ? 'Методолог' : 'Резидент';
-        }
-
-        if (data.type === 'speaker' || data.type === 'admin') {
-            currentRole = 'speaker';
-            if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
-            if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
-
-            renderSpeakerRegistry(data.residents || []);
-            toggleGlobalAddButton(true);
+        const data = await res.json();
+        
+        // Переводим интерфейс на строгую роль admin
+        if (data.type === 'admin') {
+            currentRole = 'admin';
+            document.getElementById('resident-view').classList.add('hidden');
+            document.getElementById('speaker-view').classList.remove('hidden'); // HTML-id контейнера оставляем, чтобы верстка не поплыла
+            renderRegistry(data.residents);
         } else {
             currentRole = 'resident';
-            if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.add('hidden');
-            if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.remove('hidden');
-
-            renderResidentProfile(data.profile || {});
-            renderResidentMetrics(data.metrics || []);
-            toggleGlobalAddButton(false);
+            document.getElementById('speaker-view').classList.add('hidden');
+            document.getElementById('resident-view').classList.remove('hidden');
+            renderResidentDashboard(data);
         }
+        
+        // Загружаем календарь после определения роли
+        await loadCalendarEvents();
     } catch (err) {
-        console.error('Ошибка загрузки данных панели:', err);
+        console.error(err);
+        logout();
     }
 }
 
@@ -326,15 +325,15 @@ async function renderGoogleCalendar() {
         const dayStr = String(day).padStart(2, '0');
         const fullDateStr = `${pickerVal}-${dayStr}`;
         
-        cell.onclick = (e) => {
-            if(!e.target.classList.contains('counter-badge-clickable')) {
-                if(window.innerWidth <= 768) {
-                    selectMobileTimelineDate(fullDateStr);
-                } else {
-                    openDayModal(fullDateStr);
-                }
-            }
-        };
+        ccell.onclick = (e) => {
+    if (!e.target.classList.contains('counter-badge-clickable')) {
+        // Записываем выбранную дату в глобальную переменную
+        currentSelectedDateStr = fullDateStr; 
+        
+        // И для ПК, и для мобилок гарантированно открываем модалку дня
+        openDayModal(fullDateStr);
+    }
+};
 
         cell.innerHTML = `<span class="cell-day-number">${day}</span>`;
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
@@ -450,16 +449,18 @@ function openDayModal(dateStr) {
     const dayModal = document.getElementById('day-modal');
     if (!dayModal) return;
     
+    // Сбрасываем скрывающий класс и накручиваем приоритет слоев для мобилок
     dayModal.classList.remove('hidden');
+    dayModal.style.display = 'block'; 
+    dayModal.style.zIndex = '3500'; 
     
     const titleElem = document.getElementById('modal-day-title');
     if (titleElem) {
-        // Красиво форматируем дату из YYYY-MM-DD в DD.MM.YYYY
         const parts = dateStr.split('-');
         titleElem.innerText = `События на ${parts[2]}.${parts[1]}.${parts[0]}`;
     }
     
-    // Перерисовываем содержимое (включая нашу кнопку)
+    // Перерисовываем список (и кнопку создания для админа)
     renderDayEventsDetails();
 }
 
@@ -473,37 +474,40 @@ function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
     if (!listContainer) return;
     listContainer.innerHTML = '';
+    
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // ИСПРАВЛЕНИЕ: Расширяем проверку. Если роль speaker, admin ИЛИ на экране отображается speaker-view
-    const isMethodologist = currentRole === 'speaker' || 
-                            currentRole === 'admin' || 
-                            (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
+    // Проверяем админские права по роли или по активному экрану
+    const isAdmin = currentRole === 'admin' || 
+                    (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
 
-    if (isMethodologist) {
-        const createBtnPC = document.createElement('button');
-        createBtnPC.className = "btn-primary";
-        createBtnPC.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:10px; background: #b59473; color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: block !important;";
-        createBtnPC.innerText = "➕ Добавить событие в этот день";
-        createBtnPC.onclick = () => {
+    // Если зашел админ — кнопка ДОЛЖНА БЫТЬ ТУТ ВСЕГДА
+    if (isAdmin) {
+        const createBtn = document.createElement('button');
+        createBtn.className = "btn-primary";
+        createBtn.style.cssText = "width:100%; margin-bottom:20px; font-size:0.9rem; padding:12px; background: #b59473; color: #000; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; display: block !important;";
+        createBtn.innerText = "➕ Добавить событие в этот день";
+        createBtn.onclick = () => {
             triggerCreateEvent("12:00"); 
         };
-        listContainer.appendChild(createBtnPC);
+        listContainer.appendChild(createBtn);
     }
 
+    // Если событий нет — пишем плашку под кнопкой добавления
     if (dayEvents.length === 0) {
         listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted); width: 100%;">Событий не запланировано.</p>`;
         return; 
     }
 
+    // Рендерим существующие карточки встреч
     dayEvents.forEach(e => {
         const card = document.createElement('div');
-        card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px;";
+        card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px; border-left: 3px solid #b59473;";
         
         let actionButtonsHtml = '';
-        if (isMethodologist) {
+        if (isAdmin) {
             actionButtonsHtml = `
-                <button class="btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-top:10px;" 
+                <button class="btn-primary" style="padding:6px 12px; font-size:0.8rem; margin-top:10px;" 
                     onclick="triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}', '${e.event_date}')">
                     Редактировать / Удалить
                 </button>
@@ -511,7 +515,7 @@ function renderDayEventsDetails() {
         } else {
             const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
             if (userRsvp) {
-                actionButtonsHtml = `<div style="font-weight:600; margin-top:10px;">${userRsvp.status === 'going' ? 'Вы записаны' : 'Вы отказались'}</div>`;
+                actionButtonsHtml = `<div style="font-weight:600; margin-top:10px; color:#b59473;">${userRsvp.status === 'going' ? '✓ Вы записаны' : '✕ Вы отказались'}</div>`;
             } else {
                 actionButtonsHtml = `
                     <div id="desktop-rsvp-${e.id}" style="margin-top:10px;">
@@ -525,21 +529,21 @@ function renderDayEventsDetails() {
         }
 
         let adminCounterHtml = '';
-        if (isMethodologist) {
+        if (isAdmin) {
             adminCounterHtml = `
                 <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
-                    <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" 
+                    <span style="color:#b59473; cursor:pointer; text-decoration:underline;" 
                           onclick="window.currentDetailedEventId = ${e.id}; openAttendeesModalFromCache();">
-                        Просмотр регистрации участников (${e.going_count || 0} чел.)
+                        Список участников (${e.going_count || 0} чел.)
                     </span>
                 </div>
             `;
         }
 
         card.innerHTML = `
-            <h4>${e.title}</h4>
-            <p style="margin-top:5px; font-size:0.85rem;">🕒 Время: <strong>${e.event_time}</strong></p>
-            <p style="font-size:0.85rem;">📍 Адрес: <strong>${e.address}</strong></p>
+            <h4 style="color:#fff; font-size:1rem; margin:0;">${e.title}</h4>
+            <p style="margin-top:8px; font-size:0.85rem; color:#ccc;">🕒 Время: <strong>${e.event_time}</strong></p>
+            <p style="font-size:0.85rem; color:#ccc; margin-bottom:5px;">📍 Адрес: <strong>${e.address}</strong></p>
             ${actionButtonsHtml}
             ${adminCounterHtml}
         `;

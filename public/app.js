@@ -5,58 +5,56 @@ let cachedRsvps = [];
 let currentSelectedDateStr = ''; 
 
 document.addEventListener('DOMContentLoaded', () => {
-    initAuth();
-    setupNavigation();
-});
-
-function initAuth() {
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            const errorBlock = document.getElementById('login-error');
-            if (errorBlock) errorBlock.classList.add('hidden');
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                    if (errorBlock) {
-                        errorBlock.innerText = data.error || 'Ошибка входа';
-                        errorBlock.classList.remove('hidden');
-                    }
-                    return;
-                }
-                token = data.token;
-                localStorage.setItem('token', token);
-                showMainSpace();
-            } catch (err) {
-                console.error(err);
-            }
-        });
-    }
-
     if (token) {
         showMainSpace();
     } else {
         showLoginSpace();
     }
+    setupNavigation();
+});
+
+// Интеграция функции входа с index.html onclick="handleLogin()"
+async function handleLogin() {
+    const emailElem = document.getElementById('email');
+    const passwordElem = document.getElementById('password');
+    const errorBlock = document.getElementById('login-error');
+    
+    if (!emailElem || !passwordElem) return;
+    if (errorBlock) errorBlock.classList.add('hidden');
+
+    const email = emailElem.value;
+    const password = passwordElem.value;
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            if (errorBlock) {
+                errorBlock.innerText = data.error || 'Ошибка входа';
+                errorBlock.classList.remove('hidden');
+            }
+            return;
+        }
+        token = data.token;
+        localStorage.setItem('token', token);
+        showMainSpace();
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 function showLoginSpace() {
-    if (document.getElementById('auth-space')) document.getElementById('auth-space').classList.remove('hidden');
-    if (document.getElementById('main-space')) document.getElementById('main-space').classList.add('hidden');
+    if (document.getElementById('auth-screen')) document.getElementById('auth-screen').classList.remove('hidden');
+    if (document.getElementById('main-screen')) document.getElementById('main-screen').classList.add('hidden');
 }
 
 function showMainSpace() {
-    if (document.getElementById('auth-space')) document.getElementById('auth-space').classList.add('hidden');
-    if (document.getElementById('main-space')) document.getElementById('main-space').classList.remove('hidden');
+    if (document.getElementById('auth-screen')) document.getElementById('auth-screen').classList.add('hidden');
+    if (document.getElementById('main-screen')) document.getElementById('main-screen').classList.remove('hidden');
     loadDashboardData();
 }
 
@@ -78,19 +76,11 @@ async function loadDashboardData() {
             currentRole = 'speaker'; 
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.add('hidden');
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.remove('hidden');
-            
-            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('btn-add-speaker-resident');
-            if (addResBtn) addResBtn.classList.remove('hidden');
-            
             renderRegistry(data.residents);
         } else {
             currentRole = 'resident';
             if (document.getElementById('speaker-view')) document.getElementById('speaker-view').classList.add('hidden');
             if (document.getElementById('resident-view')) document.getElementById('resident-view').classList.remove('hidden');
-            
-            const addResBtn = document.getElementById('global-add-resident-btn') || document.getElementById('btn-add-speaker-resident');
-            if (addResBtn) addResBtn.classList.add('hidden');
-            
             renderResidentDashboard(data);
         }
         
@@ -130,6 +120,7 @@ function setupNavigation() {
     const monthSelect = document.getElementById('calendar-month-select');
     if (monthSelect) monthSelect.addEventListener('change', loadCalendarEvents);
 
+    // Закрытие модального окна просмотра дня
     const closeDayModalBtn = document.getElementById('close-day-modal-btn');
     if (closeDayModalBtn) {
         closeDayModalBtn.addEventListener('click', () => {
@@ -194,22 +185,23 @@ function renderGoogleCalendar() {
 
     for (let i = 1; i < startDayOfWeek; i++) {
         const emptyCell = document.createElement('div');
-        emptyCell.className = 'calendar-cell empty';
+        emptyCell.className = 'calendar-day-cell empty';
         grid.appendChild(emptyCell);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
-        cell.className = 'calendar-cell';
+        cell.className = 'calendar-day-cell';
         const fullDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-        cell.innerHTML = `<div class="day-number">${day}</div>`;
+        cell.innerHTML = `<div class="cell-day-number">${day}</div>`;
 
         const dayEvents = cachedEvents.filter(e => e.event_date === fullDateStr);
         if (dayEvents.length > 0) {
             cell.classList.add('has-events');
             const badge = document.createElement('div');
-            badge.className = 'event-badge-counter counter-badge-clickable';
+            badge.className = 'counter-badge-clickable';
+            badge.style.cssText = "background:#b59473; color:#000; font-size:0.75rem; padding:2px 6px; border-radius:3px; margin-top:5px; text-align:center; font-weight:bold;";
             badge.innerText = `Событий: ${dayEvents.length}`;
             cell.appendChild(badge);
         }
@@ -228,8 +220,6 @@ function openDayModal(dateStr) {
     if (!dayModal) return;
     
     dayModal.classList.remove('hidden');
-    dayModal.style.display = 'block'; 
-    dayModal.style.zIndex = '3500'; 
     
     const titleElem = document.getElementById('modal-day-title');
     if (titleElem) {
@@ -245,10 +235,9 @@ function renderDayEventsDetails() {
     listContainer.innerHTML = '';
     
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
-    const isManager = currentRole === 'speaker' || currentRole === 'admin' || 
-                      (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
+    const isManager = currentRole === 'speaker' || currentRole === 'admin';
 
-    // Кнопка рендерится в первую очередь и никогда не стирается
+    // Добавление кнопки создания для администратора СРАЗУ и НА ВСЕ ДНИ
     if (isManager) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -270,41 +259,15 @@ function renderDayEventsDetails() {
 
     dayEvents.forEach(e => {
         const card = document.createElement('div');
-        card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px; border-left: 3px solid #b59473;";
+        card.style.cssText = "position:relative; margin-bottom:15px; background:#141414; padding:15px; border-radius:4px; border-left: 3px solid #b59473; border: 1px solid #222;";
         
         let actionButtonsHtml = '';
         if (isManager) {
             actionButtonsHtml = `
                 <button class="btn-primary" style="padding:6px 12px; font-size:0.8rem; margin-top:10px;" 
                     onclick="triggerEditEvent(${e.id}, '${e.title}', '${e.event_time}', '${e.address}', '${e.event_date}')">
-                    Редактировать / Удалить
+                    Редактировать
                 </button>
-            `;
-        } else {
-            const userRsvp = cachedRsvps.find(r => r.event_id === e.id);
-            if (userRsvp) {
-                actionButtonsHtml = `<div style="font-weight:600; margin-top:10px; color:#b59473;">${userRsvp.status === 'going' ? '✓ Вы записаны' : '✕ Вы отказались'}</div>`;
-            } else {
-                actionButtonsHtml = `
-                    <div id="desktop-rsvp-${e.id}" style="margin-top:10px;">
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn-confirm-action" style="padding:6px 14px; font-size:0.8rem;" onclick="openCustomConfirmModal(${e.id}, 'going', false)">Я буду</button>
-                            <button class="btn-cancel-action" style="padding:6px 14px; font-size:0.8rem;" onclick="openCustomConfirmModal(${e.id}, 'declined', false)">Не смогу</button>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        let adminCounterHtml = '';
-        if (isManager) {
-            adminCounterHtml = `
-                <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
-                    <span style="color:#b59473; cursor:pointer; text-decoration:underline;" 
-                          onclick="window.currentDetailedEventId = ${e.id}; openAttendeesModalFromCache();">
-                        Список участников (${e.going_count || 0} чел.)
-                    </span>
-                </div>
             `;
         }
 
@@ -313,36 +276,133 @@ function renderDayEventsDetails() {
             <p style="margin-top:8px; font-size:0.85rem; color:#ccc;">🕒 Время: <strong>${e.event_time}</strong></p>
             <p style="font-size:0.85rem; color:#ccc; margin-bottom:5px;">📍 Адрес: <strong>${e.address}</strong></p>
             ${actionButtonsHtml}
-            ${adminCounterHtml}
         `;
         listContainer.appendChild(card);
     });
 }
 
 function triggerCreateEvent(defaultTime = "12:00") {
+    // Скрываем окно дня
     const dayModal = document.getElementById('day-modal');
     if (dayModal) dayModal.classList.add('hidden');
 
-    const createModal = document.getElementById('create-event-modal') || document.getElementById('event-form-modal');
-    if (!createModal) {
-        const title = prompt("Введите название события:");
-        if (!title) return;
-        const address = prompt("Введите адрес локации:", "Пресненская наб., 12");
+    // Открываем модальное окно создания/редактирования из вашей разметки
+    const editorModal = document.getElementById('editor-modal');
+    if (editorModal) {
+        editorModal.classList.remove('hidden');
         
-        fetch('/api/events/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ title, event_date: currentSelectedDateStr, event_time: defaultTime, address })
-        }).then(() => loadCalendarEvents());
+        document.getElementById('edit-event-id').value = '';
+        document.getElementById('event-title-input').value = '';
+        document.getElementById('event-date-input').value = currentSelectedDateStr;
+        document.getElementById('event-time-input').value = defaultTime;
+        document.getElementById('event-address-input').value = '';
+        
+        document.getElementById('editor-modal-title').innerText = "Создание события";
+        if(document.getElementById('btn-delete-event')) {
+            document.getElementById('btn-delete-event').style.display = 'none';
+        }
+    }
+}
+
+// Открытие окна для редактирования существующего события
+window.triggerEditEvent = function(id, title, time, address, date) {
+    const dayModal = document.getElementById('day-modal');
+    if (dayModal) dayModal.classList.add('hidden');
+
+    const editorModal = document.getElementById('editor-modal');
+    if (editorModal) {
+        editorModal.classList.remove('hidden');
+        
+        document.getElementById('edit-event-id').value = id;
+        document.getElementById('event-title-input').value = title;
+        document.getElementById('event-date-input').value = date;
+        document.getElementById('event-time-input').value = time;
+        document.getElementById('event-address-input').value = address;
+        
+        document.getElementById('editor-modal-title').innerText = "Настройка события";
+        if(document.getElementById('btn-delete-event')) {
+            document.getElementById('btn-delete-event').style.display = 'block';
+        }
+    }
+}
+
+window.closeEditorModal = function() {
+    const editorModal = document.getElementById('editor-modal');
+    if (editorModal) editorModal.classList.add('hidden');
+}
+
+// Сохранение (Создание или Изменение) из модального окна
+window.saveEventFromModal = async function() {
+    const id = document.getElementById('edit-event-id').value;
+    const title = document.getElementById('event-title-input').value;
+    const event_date = document.getElementById('event-date-input').value;
+    const event_time = document.getElementById('event-time-input').value;
+    const address = document.getElementById('event-address-input').value;
+
+    if (!title || !event_date) {
+        alert("Заполните название и дату мероприятия");
         return;
     }
 
-    createModal.classList.remove('hidden');
-    createModal.style.display = 'block';
+    const url = id ? `/api/events/${id}` : '/api/events/create';
+    const method = id ? 'PUT' : 'POST';
 
-    const dateInput = document.getElementById('form-event-date') || document.getElementById('create-event-date');
-    if (dateInput) dateInput.value = currentSelectedDateStr;
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ title, event_date, event_time, address })
+        });
+        if (res.ok) {
+            closeEditorModal();
+            await loadCalendarEvents();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
 
-    const timeInput = document.getElementById('form-event-time') || document.getElementById('create-event-time');
-    if (timeInput) timeInput.value = defaultTime;
+// Удаление события
+window.deleteEventFromModal = async function() {
+    const id = document.getElementById('edit-event-id').value;
+    if (!id) return;
+
+    if (!confirm("Вы уверены, что хотите удалить это событие?")) return;
+
+    try {
+        const res = await fetch(`/api/events/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            closeEditorModal();
+            await loadCalendarEvents();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Открытие профиля резидента из общего реестра спикера
+window.openResidentProfile = async function(id) {
+    try {
+        const res = await fetch(`/api/resident/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // Подставляем данные в разметку просмотра карточки резидента методологом
+        if (document.getElementById('profile-full-name')) document.getElementById('profile-full-name').innerText = data.profile.full_name || '-';
+        if (document.getElementById('profile-company')) document.getElementById('profile-company').innerText = data.profile.company || '-';
+        if (document.getElementById('profile-niche')) document.getElementById('profile-niche').innerText = data.profile.niche || '-';
+        if (document.getElementById('profile-turnover')) document.getElementById('profile-turnover').innerText = data.profile.turnover || '-';
+        if (document.getElementById('profile-entry-request')) document.getElementById('profile-entry-request').innerText = data.profile.entry_request || '-';
+        
+        // Показываем блок с анкетой, убирая скрывающий класс
+        const detailsBlock = document.getElementById('resident-details-block');
+        if (detailsBlock) detailsBlock.classList.remove('hidden');
+    } catch (err) {
+        console.error(err);
+    }
 }

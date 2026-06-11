@@ -481,16 +481,19 @@ function closeDayModal(e) {
 function renderDayEventsDetails() {
     const listContainer = document.getElementById('day-events-details-list');
     if (!listContainer) return;
+    
+    // Очищаем контейнер перед отрисовкой
     listContainer.innerHTML = '';
     
+    // Фильтруем события на выбранную дату
     const dayEvents = cachedEvents.filter(e => e.event_date === currentSelectedDateStr);
 
-    // Определяем, админ перед нами или нет (смотрим на роль или на видимость панели методолога)
+    // Проверяем права менеджера/администратора
     const isManager = currentRole === 'speaker' || 
                       currentRole === 'admin' || 
                       (document.getElementById('speaker-view') && !document.getElementById('speaker-view').classList.contains('hidden'));
 
-    // Если это менеджер/админ — кнопка «Добавить событие» будет ВСЕГДА на любом устройстве
+    // ШАГ 1: Если это администратор — добавляем кнопку создания СРАЗУ. Она будет первой в списке.
     if (isManager) {
         const createBtn = document.createElement('button');
         createBtn.className = "btn-primary";
@@ -502,11 +505,19 @@ function renderDayEventsDetails() {
         listContainer.appendChild(createBtn);
     }
 
+    // ШАГ 2: Теперь проверяем наличие событий.
     if (dayEvents.length === 0) {
-        listContainer.innerHTML += `<p style="padding:20px; text-align:center; color: var(--text-muted); width: 100%;">Событий не запланировано.</p>`;
+        // Если событий нет, мы просто ДОБАВЛЯЕМ текст ниже кнопки создания, но НЕ делаем return раньше времени!
+        const noEventsParagraph = document.createElement('p');
+        noEventsParagraph.style.cssText = "padding:20px; text-align:center; color: var(--text-muted); width: 100%;";
+        noEventsParagraph.innerText = "Событий не запланировано.";
+        listContainer.appendChild(noEventsParagraph);
+        
+        // Вот теперь, когда и кнопка (если админ), и текст добавлены, можно завершить функцию
         return; 
     }
 
+    // ШАГ 3: Если события есть — рендерим их карточки (этот код выполнится, только если массив не пустой)
     dayEvents.forEach(e => {
         const card = document.createElement('div');
         card.style.cssText = "position:relative; margin-bottom:15px; background:#111; padding:15px; border-radius:4px; border-left: 3px solid #b59473;";

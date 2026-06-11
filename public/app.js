@@ -408,15 +408,25 @@ function renderDayEventsDetails() {
 
         // Счетчик участников внизу для администратора
         let adminCounterHtml = '';
-        if (currentRole === 'speaker' || currentRole === 'admin') {
-            adminCounterHtml = `
-                <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
-                    <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" onclick="event.stopPropagation(); showAttendeesModal(${JSON.stringify(e.attendees || [])})">
-                        Участники (Подтвердили/Отклонили): ${e.going_count || 0} чел.
-                    </span>
-                </div>
-            `;
-        }
+if (currentRole === 'speaker' || currentRole === 'admin') {
+    // Безопасно сохраняем индекс события вместо передачи сырого JSON в onclick
+    adminCounterHtml = `
+        <div style="margin-top:12px; border-top:1px solid #222; padding-top:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-gold); cursor:pointer; text-decoration:underline;" 
+                  onclick="event.stopPropagation(); window.currentDetailedEventId = ${e.id}; openAttendeesModalFromCache();">
+                Участники (Подтвердили/Отклонили): ${e.going_count || 0} чел.
+            </span>
+        </div>
+    `;
+}
+
+        // Добавить прямо под функцией renderDayEventsDetails
+function openAttendeesModalFromCache() {
+    const foundEvent = cachedEvents.find(e => e.id === window.currentDetailedEventId);
+    if (foundEvent && typeof showAttendeesModal === 'function') {
+        showAttendeesModal(foundEvent.attendees || []);
+    }
+}
 
         card.innerHTML = `
             <h4>${e.title}</h4>

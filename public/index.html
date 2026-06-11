@@ -12,7 +12,7 @@
 
 <div id="auth-screen" class="auth-container">
     <div class="auth-inner">
-        <h3>Вход в пространство</h3>
+        <h3>Вход в空間</h3>
         <div class="form-group">
             <label>Email</label>
             <input type="email" id="email" value="admin@test.ru">
@@ -107,11 +107,15 @@
             </div>
 
             <div id="speaker-view" class="hidden">
-                <h2 class="screen-title">Реестр участников (Панель методолога)</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="screen-title" style="margin: 0;">Реестр участников (Панель методолога)</h2>
+                    <button id="global-add-resident-btn" class="btn-primary" style="display: none;" onclick="openAddResidentModal()">+ Добавить резидента</button>
+                </div>
+                
                 <div class="residents-list" id="residents-list"></div>
 
-                <div id="editor-block" class="card hidden" style="margin-top:30px; padding-bottom: 80px;">
-                    <h3 id="edit-resident-title">Внести директивы</h3>
+                <div id="editor-block" class="card hidden" style="margin-top:30px; position: relative; padding-bottom: 80px;">
+                    <h3 id="edit-resident-title">Внести директиву</h3>
                     <div class="form-group" style="max-width: 300px;">
                         <label>Выбранный отчетный период</label>
                         <select id="edit-period">
@@ -139,7 +143,8 @@
                 <div class="mobile-timeline-title" id="mobile-timeline-date-title">События дня</div>
                 <div id="mobile-timeline-events-list"></div>
             </div>
-        </main>
+        </div>
+    </main>
 </div>
 
 <div id="add-resident-modal" class="modal-overlay hidden">
@@ -224,8 +229,8 @@
     </div>
 </div>
 
-<div id="attendees-list-modal" class="modal-overlay hidden">
-    <div class="editor-modal-box">
+<div id="attendees-list-modal" class="modal-overlay hidden" style="z-index: 2100 !important;">
+    <div class="editor-modal-box" style="z-index: 2110 !important;">
         <h3>Состав участников события</h3>
         <div id="attendees-rows-container" style="margin-top:20px; max-height:40vh; overflow-y:auto;"></div>
         <div class="editor-actions-flex">
@@ -234,8 +239,8 @@
     </div>
 </div>
 
-<div id="day-modal" class="modal-overlay hidden" onclick="closeDayModal(event)">
-    <div class="day-modal-box">
+<div id="day-modal" class="modal-overlay hidden" onclick="closeDayModal(event)" style="z-index: 1000;">
+    <div class="day-modal-box" onclick="event.stopPropagation()">
         <div class="modal-header-nav">
             <h3 id="modal-day-title">Расписание</h3>
             <button class="close-btn" onclick="document.getElementById('day-modal').classList.add('hidden')">&times;</button>
@@ -246,7 +251,7 @@
     </div>
 </div>
 
-<div id="event-editor-modal" class="modal-overlay hidden">
+<div id="event-editor-modal" class="modal-overlay hidden" style="z-index: 1500;">
     <div class="editor-modal-box">
         <h3 id="editor-modal-title">Настройка события</h3>
         <input type="hidden" id="edit-event-id">
@@ -257,7 +262,7 @@
         
         <div class="form-group">
             <label>Дата события</label>
-<input type="date" id="event-date-input" class="form-input" style="margin-bottom:10px; color:#fff; background:#222; border:1px solid #333;">
+            <input type="date" id="event-date-input" class="form-input" style="margin-bottom:10px; color:#fff; background:#222; border:1px solid #333;">
             <label>Время начала (например, 14:00)</label>
             <input type="text" id="event-time-input">
         </div>

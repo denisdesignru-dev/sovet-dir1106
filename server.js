@@ -97,21 +97,40 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 });
 
 // Добавление нового резидента методологом
-app.post('/api/residents/create', authenticateToken, (req, res) => {
-    if (req.user.role === 'resident') return res.status(403).json({ error: 'Запрещено.' });
-    const { fullName, company, niche, turnover, entryRequest } = req.body;
+app.post('/api/residents/create', checkAuth, (req, res) => {
+    if (req.user.type !== 'speaker' && req.user.type !== 'admin') {
+        return res.status(403).json({ error: 'Нет доступа' });
+    }
+    const { fullName, email, company, niche, turnover, entryRequest } = req.body;
     
-    const nextId = users.length + 1;
-    // Генерируем тестовый email на основе фамилии для бесшовного входа
-    const generatedEmail = `user${nextId}@sovet.ru`; 
-    
-    users.push({
-        id: nextId,
-        email: generatedEmail,
-        passwordHash: bcrypt.hashSync('123456', 10),
-        role: 'resident',
-        fullName
+    // Используем email переданный из формы
+    if (!email) {
+        return res.status(400).json({ error: 'Email обязателен к заполнению' });
+    }
+
+    // Хешируем стандартный пароль "123456" для нового пользователя
+    const passwordHash = bcrypt.hashSync('123456', 10);
+
+    // Подключаем логику записи в вашу базу данных:
+    db.run("INSERT INTO users (email, password, type) VALUES (?, ?, 'resident')", [email, passwordHash], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Пользователь с таким Email уже существует или ошибка БД' });
+        }
+        const userId = this.lastID; // получаем ID только что созданного пользователя
+
+        // Теперь записываем данные в таблицу профилей резидентов
+        db.run(
+            "INSERT INTO residents (user_id, full_name, company, niche, turnover, entry_request) VALUES (?, ?, ?, ?, ?, ?)",
+            [userId, fullName, company, niche, turnover, entryRequest],
+            function(profileErr) {
+                if (profileErr) {
+                    return res.status(500).json({ error: 'Ошибка при создании профиля резидента' });
+                }
+                res.json({ success: true, email: email });
+            }
+        );
     });
+});
 
     profiles[nextId] = {
         full_name: fullName,

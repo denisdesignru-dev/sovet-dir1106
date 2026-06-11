@@ -241,15 +241,7 @@
             <button class="close-btn" onclick="document.getElementById('day-modal').classList.add('hidden')">&times;</button>
         </div>
         <div class="day-modal-body-layout">
-            <div class="time-axis-sidebar">
-                <div class="time-slot" data-hour="09:00"><span>09:00</span></div>
-                <div class="time-slot" data-hour="12:00"><span>12:00</span></div>
-                <div class="time-slot" data-hour="14:00"><span>14:00</span></div>
-                <div class="time-slot" data-hour="16:00"><span>16:00</span></div>
-                <div class="time-slot" data-hour="18:00"><span>18:00</span></div>
-                <div class="time-slot" data-hour="20:00"><span>20:00</span></div>
-            </div>
-            <div class="detailed-events-stream" id="day-events-details-list"></div>
+            <div class="detailed-events-stream" id="day-events-details-list" style="width: 100%;"></div>
         </div>
     </div>
 </div>
@@ -263,7 +255,7 @@
             <input type="text" id="event-title-input">
         </div>
         <div class="form-group">
-            <label>Время начала</label>
+            <label>Время начала (например, 14:00)</label>
             <input type="text" id="event-time-input">
         </div>
         <div class="form-group">
@@ -278,7 +270,7 @@
     </div>
 </div>
 
-<button id="global-add-resident-btn" class="floating-create-btn hidden" onclick="openAddResidentModal()">+</button>
+<button id="calendar-add-event-btn" class="floating-create-btn hidden" style="position: fixed; bottom: 20px; right: 20px; z-index: 999;" onclick="triggerCreateEvent('12:00')">+</button>
 
 <script src="app.js"></script>
 </body>
